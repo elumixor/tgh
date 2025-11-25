@@ -1,6 +1,6 @@
 # Telegram Helper Bot (TGH)
 
-AI-powered Telegram bot that uses Claude API to understand and execute your requests.
+AI-powered Telegram bot that uses Claude CLI to understand and execute your requests.
 
 ## Setup
 
@@ -12,11 +12,15 @@ AI-powered Telegram bot that uses Claude API to understand and execute your requ
 
 **Note:** The bot will have its own identity - bots cannot send messages as your personal account. To interact with it, simply search for your bot's username in Telegram and start a private chat.
 
-### 2. Get an Anthropic API Key
+### 2. Set up Claude CLI
 
-1. Sign up at [console.anthropic.com](https://console.anthropic.com)
-2. Navigate to API Keys section
-3. Create a new API key
+The bot uses the `claude` CLI in headless mode. Make sure you have it installed and authenticated:
+
+```bash
+# The Claude CLI will use your existing authentication
+# Just ensure 'claude' is available in your PATH
+claude --version
+```
 
 ### 3. Local Development
 
@@ -27,9 +31,8 @@ bun install
 # Create .env file
 cp .env.example .env
 
-# Edit .env and add your tokens
+# Edit .env and add your bot token
 TELEGRAM_BOT_TOKEN=your_bot_token_here
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
 # Run the bot
 bun run dev
@@ -37,49 +40,47 @@ bun run dev
 
 ### 4. Deploy to Render
 
+The bot is configured to deploy via Docker on Render:
+
 1. Push your code to GitHub (already done!)
 
-2. Create a new Web Service on Render:
-```bash
-# The render.yaml is already configured, but you can also use the CLI
-# Make sure to set environment variables in Render dashboard
-```
+2. Set environment variables in Render:
+   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from @BotFather
+   - `ANTHROPIC_API_KEY`: Your Anthropic API key (for Claude CLI authentication)
 
-3. Add environment variables in Render dashboard:
-   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token
-   - `ANTHROPIC_API_KEY`: Your Anthropic API key
+3. Deploy using the included `render.yaml` configuration
 
-4. Deploy!
+The Dockerfile automatically installs the Claude CLI during the build process.
 
-## Features
+## How It Works
 
-The bot currently includes example tools:
-- Weather lookup (mock implementation)
-- Reminder setting (mock implementation)
+The bot:
+1. Receives messages via Grammy (Telegram bot framework)
+2. Passes them to Claude CLI using `claude -p "message"`
+3. Returns Claude's response back to the user
 
-Claude API uses function calling to understand your intent and execute the appropriate tool.
+This approach gives you the full power of Claude with all its capabilities:
+- Natural language understanding
+- Code execution and analysis
+- Web search
+- File operations
+- And any MCP tools you have configured
 
 ## Extending the Bot
 
-Add new tools in `src/claude-assistant.ts`:
+Since the bot uses Claude CLI directly, it automatically gets all Claude's capabilities. You can:
 
-1. Add tool definition to the `tools` array
-2. Implement the tool logic in `executeToolCall()`
-
-Example tools you could add:
-- Web scraping
-- Database queries
-- API integrations
-- File operations
-- Calculations
+- Configure MCP servers for additional tools
+- Use Claude's built-in capabilities for various tasks
+- Customize prompts and behavior as needed
 
 ## Architecture
 
-- **Grammy**: Telegram bot framework
-- **Anthropic SDK**: Claude API integration with function calling
+- **Grammy**: Lightweight Telegram bot framework
+- **Claude CLI**: Headless mode for AI processing
 - **Bun**: Fast JavaScript runtime and package manager
 - **Biome**: Linting and formatting
-- **Render**: Hosting platform
+- **Render**: Hosting platform with Docker support
 
 ## Development
 

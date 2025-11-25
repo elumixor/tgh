@@ -2,13 +2,10 @@ import { Bot } from "grammy";
 import { ClaudeAssistant } from "./claude-assistant";
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-
 if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN is required");
-if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is required");
 
 const bot = new Bot(botToken);
-const assistant = new ClaudeAssistant(anthropicApiKey);
+const assistant = new ClaudeAssistant();
 
 bot.command("start", (ctx) => ctx.reply("Hello! I'm your AI assistant. Send me any message and I'll help you."));
 
