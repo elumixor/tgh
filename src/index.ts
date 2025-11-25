@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, type Update } from "grammy";
 import { ClaudeAssistant } from "./claude-assistant";
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -23,5 +23,37 @@ bot.on("message:text", async (ctx) => {
   }
 });
 
-bot.start();
-console.log("Bot started successfully!");
+// Webhook setup
+const PORT = process.env.PORT || 10000;
+const WEBHOOK_URL = process.env.WEBHOOK_URL || `https://tgh-bot.onrender.com`;
+
+// Set webhook
+await bot.api.setWebhook(`${WEBHOOK_URL}/webhook`);
+console.log(`Webhook set to: ${WEBHOOK_URL}/webhook`);
+
+// Start server with webhook handler
+Bun.serve({
+  port: PORT,
+  async fetch(req) {
+    const url = new URL(req.url);
+
+    if (url.pathname === "/webhook" && req.method === "POST") {
+      try {
+        const update = await req.json() as Update;
+        await bot.handleUpdate(update);
+        return new Response("OK", { status: 200 });
+      } catch (error) {
+        console.error("Webhook error:", error);
+        return new Response("Error", { status: 500 });
+      }
+    }
+
+    if (url.pathname === "/") {
+      return new Response("Bot is running!", { status: 200 });
+    }
+
+    return new Response("Not Found", { status: 404 });
+  },
+});
+
+console.log(`Bot server started on port ${PORT}`);
