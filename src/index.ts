@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, webhookCallback } from "grammy";
 import { ClaudeAssistant } from "./claude-assistant";
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -27,9 +27,12 @@ bot.on("message:text", async (ctx) => {
 const PORT = process.env.PORT || 10000;
 const WEBHOOK_URL = process.env.WEBHOOK_URL || `https://tgh-bot.onrender.com`;
 
-// Set webhook
+// Set webhook with Telegram
 await bot.api.setWebhook(`${WEBHOOK_URL}/webhook`);
 console.log(`Webhook set to: ${WEBHOOK_URL}/webhook`);
+
+// Create webhook handler for std/http (Bun, Deno, Node.js native)
+const handleWebhook = webhookCallback(bot, "std/http");
 
 // Start server with webhook handler
 Bun.serve({
@@ -37,15 +40,8 @@ Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
-    if (url.pathname === "/webhook" && req.method === "POST") {
-      try {
-        const update = await req.json();
-        await bot.handleUpdate(update);
-        return new Response("OK", { status: 200 });
-      } catch (error) {
-        console.error("Webhook error:", error);
-        return new Response("Error", { status: 500 });
-      }
+    if (url.pathname === "/webhook") {
+      return await handleWebhook(req);
     }
 
     if (url.pathname === "/") {
