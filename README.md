@@ -31,12 +31,16 @@ bun install
 # Create .env file
 cp .env.example .env
 
-# Edit .env and add your bot token
-TELEGRAM_BOT_TOKEN=your_bot_token_here
+# Edit .env and add your configuration:
+# TELEGRAM_BOT_TOKEN=your_bot_token_here
+# BOT_MODE=polling  # Use polling for local dev (no public IP needed)
+# ANTHROPIC_API_KEY=your_api_key_here
 
 # Run the bot
 bun run dev
 ```
+
+The bot will run in **polling mode** by default, which works without a public IP address.
 
 ### 4. Deploy to Render
 
@@ -46,11 +50,15 @@ The bot is configured to deploy via Docker on Render:
 
 2. Set environment variables in Render:
    - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from @BotFather
-   - `ANTHROPIC_API_KEY`: Your Anthropic API key (for Claude CLI authentication)
+   - `BOT_MODE`: Set to `webhook` for production
+   - `WEBHOOK_URL`: Your Render app URL (e.g., `https://your-app.onrender.com`)
+   - `ANTHROPIC_API_KEY`: Your Anthropic API key
 
 3. Deploy using the included `render.yaml` configuration
 
 The Dockerfile automatically installs the Claude CLI during the build process.
+
+**Note:** The bot runs in **webhook mode** in production, which requires a public HTTPS URL.
 
 ## How It Works
 

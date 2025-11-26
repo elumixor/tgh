@@ -4,6 +4,7 @@ import { ClaudeAssistant } from "./claude-assistant";
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN is required");
 
+const MODE = process.env.BOT_MODE || "polling"; // "polling" or "webhook"
 const bot = new Bot(botToken);
 const assistant = new ClaudeAssistant();
 
@@ -23,33 +24,48 @@ bot.on("message:text", async (ctx) => {
   }
 });
 
-// Webhook setup
-const PORT = process.env.PORT || 10000;
-const WEBHOOK_URL = process.env.WEBHOOK_URL || `https://tgh-bot.onrender.com`;
+if (MODE === "webhook") {
+  // Webhook mode (for production with public HTTPS URL)
+  const PORT = process.env.PORT || 10000;
+  const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
-// Set webhook with Telegram
-await bot.api.setWebhook(`${WEBHOOK_URL}/webhook`);
-console.log(`Webhook set to: ${WEBHOOK_URL}/webhook`);
+  if (!WEBHOOK_URL) {
+    throw new Error("WEBHOOK_URL is required for webhook mode");
+  }
 
-// Create webhook handler for std/http (Bun, Deno, Node.js native)
-const handleWebhook = webhookCallback(bot, "std/http");
+  // Set webhook with Telegram
+  await bot.api.setWebhook(`${WEBHOOK_URL}/webhook`);
+  console.log(`Webhook mode: ${WEBHOOK_URL}/webhook`);
 
-// Start server with webhook handler
-Bun.serve({
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
+  // Create webhook handler
+  const handleWebhook = webhookCallback(bot, "std/http");
 
-    if (url.pathname === "/webhook") {
-      return await handleWebhook(req);
-    }
+  // Start server with webhook handler
+  Bun.serve({
+    port: PORT,
+    async fetch(req) {
+      const url = new URL(req.url);
 
-    if (url.pathname === "/") {
-      return new Response("Bot is running!", { status: 200 });
-    }
+      if (url.pathname === "/webhook") {
+        return await handleWebhook(req);
+      }
 
-    return new Response("Not Found", { status: 404 });
-  },
-});
+      if (url.pathname === "/") {
+        return new Response("Bot is running!", { status: 200 });
+      }
 
-console.log(`Bot server started on port ${PORT}`);
+      return new Response("Not Found", { status: 404 });
+    },
+  });
+
+  console.log(`Bot server started on port ${PORT}`);
+} else {
+  // Polling mode (for local development)
+  console.log("Polling mode: starting bot...");
+
+  // Remove webhook if it was set before
+  await bot.api.deleteWebhook();
+
+  bot.start();
+  console.log("Bot is running in polling mode");
+}
