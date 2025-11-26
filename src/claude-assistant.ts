@@ -1,13 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { env } from "./env";
 
 export class ClaudeAssistant {
   private client: Anthropic;
 
   constructor() {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is required");
-
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   }
 
   async processMessage(userMessage: string): Promise<string> {

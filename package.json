@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
-    "grammy": "^1.35.0"
+    "grammy": "^1.35.0",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/bun": "latest",
