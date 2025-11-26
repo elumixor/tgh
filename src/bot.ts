@@ -5,6 +5,11 @@ import { env } from "./env";
 export const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 const assistant = new ClaudeAssistant();
 
+bot.api.getMe().then((me) => {
+  assistant.setBotUsername(me.username);
+  console.log(`Bot username: @${me.username}`);
+});
+
 bot.on("message::mention", async (ctx) => {
   if (ctx.chat?.id !== env.ALLOWED_CHAT_ID) return;
 
