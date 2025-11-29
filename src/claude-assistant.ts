@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { Context } from "grammy";
 import { env } from "./env";
-import { executeTool, tools } from "./tools";
+import { executeTool, tools, type ToolContext } from "./tools";
 
 export class ClaudeAssistant {
   private client: Anthropic;
@@ -14,7 +15,7 @@ export class ClaudeAssistant {
     this.botUsername = username;
   }
 
-  async processMessage(userMessage: string): Promise<string> {
+  async processMessage(userMessage: string, telegramCtx?: Context): Promise<string> {
     const systemPrompt = `You are @${this.botUsername || "bot"}, a Telegram bot assistant.
 
 Response style:
@@ -40,11 +41,28 @@ Response style:
         messages,
       });
 
+      let botReplyMessageId: number | undefined;
+
       while (response.stop_reason === "tool_use") {
         const toolUse = response.content.find((block) => block.type === "tool_use");
         if (!toolUse || toolUse.type !== "tool_use") break;
 
-        const toolResult = executeTool(toolUse.name, toolUse.input as Record<string, unknown>);
+        if (!botReplyMessageId && telegramCtx) {
+          const textContent = response.content.find((block) => block.type === "text");
+          const replyText =
+            textContent && textContent.type === "text" ? textContent.text : "Processing your request...";
+          const sentMessage = await telegramCtx.reply(replyText, {
+            reply_parameters: { message_id: telegramCtx.message?.message_id || 0 },
+          });
+          botReplyMessageId = sentMessage.message_id;
+        }
+
+        const toolContext: ToolContext | undefined =
+          telegramCtx && botReplyMessageId
+            ? { telegramCtx, messageId: botReplyMessageId }
+            : undefined;
+
+        const toolResult = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>, toolContext);
 
         messages.push({
           role: "assistant",
@@ -69,6 +87,14 @@ Response style:
           tools,
           messages,
         });
+      }
+
+      if (botReplyMessageId && telegramCtx) {
+        const content = response.content.find((block) => block.type === "text");
+        if (content && content.type === "text") {
+          await telegramCtx.api.editMessageText(telegramCtx.chat?.id || 0, botReplyMessageId, content.text);
+        }
+        return "";
       }
 
       const content = response.content.find((block) => block.type === "text");

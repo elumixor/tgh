@@ -13,8 +13,10 @@ const envSchema = z.object({
 
   // Optional
   WEBHOOK_URL: z.string().optional(),
-  RENDER_API_KEY: z.string().optional(),
-  MESHY_API_KEY: z.string().optional(),
+
+  // Required API keys
+  MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 });
 
 // Parse and validate environment variables
