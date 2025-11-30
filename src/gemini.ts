@@ -23,7 +23,7 @@ interface GeminiImagePart {
 
 export class GeminiClient {
   private client: GoogleGenAI;
-  private model = "gemini-2.5-flash-image-preview";
+  private model = "imagen-3.0-generate-002";
 
   constructor(apiKey?: string) {
     if (!apiKey && !env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
