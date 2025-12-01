@@ -1,7 +1,7 @@
-import { type Context, InputFile } from "grammy";
+import type { Context } from "grammy";
 import { geminiClient } from "../gemini";
 import { logger } from "../logger";
-import { safeEditMessageTextFromContext } from "../telegram-utils";
+import { createProgressHandler } from "../progress-handler";
 import type { Tool } from "./types";
 
 export const editImageTool: Tool = {
@@ -65,8 +65,7 @@ async function handleGeminiEditing(
   ctx: Context,
   messageId: number,
 ) {
-  const chatId = ctx.chat?.id ?? 0;
-  let lastText: string | undefined;
+  const progress = createProgressHandler(ctx, messageId);
 
   try {
     const refCount = params.referenceImages.length - 1;
@@ -75,7 +74,7 @@ async function handleGeminiEditing(
         ? `🎨 Editing image with Gemini AI...\nUsing ${refCount} reference image${refCount > 1 ? "s" : ""} for style/context`
         : "🎨 Editing image with Gemini AI...";
 
-    lastText = await safeEditMessageTextFromContext(ctx, messageId, statusText);
+    await progress.updateProgress({ text: statusText });
 
     const base64Image = await geminiClient.editImage({
       prompt: params.prompt,
@@ -84,17 +83,14 @@ async function handleGeminiEditing(
     });
     const imageBuffer = geminiClient.base64ToBuffer(base64Image);
 
-    await ctx.replyWithChatAction("upload_document");
+    await progress.sendPhotoAndFile({
+      imageData: imageBuffer,
+      photoCaption: "Edited image",
+      filename: "edited.png",
+      fileCaption: "Full quality",
+    });
 
-    try {
-      await ctx.api.deleteMessage(chatId, messageId);
-    } catch (error) {
-      console.error("Failed to delete progress message:", error);
-    }
-
-    await ctx.api.sendDocument(chatId, new InputFile(imageBuffer, "edited.png"), { caption: "Edited image" });
-
-    await ctx.api.sendMessage(chatId, `✅ Image edited\nPrompt: "${params.prompt}"`);
+    await progress.sendFinalMessage(`✅ Image edited\nPrompt: "${params.prompt}"`);
 
     logger.info({ prompt: params.prompt }, "Image editing completed successfully");
   } catch (error) {
@@ -102,11 +98,6 @@ async function handleGeminiEditing(
       { prompt: params.prompt, error: error instanceof Error ? error.message : error },
       "Image editing failed in handler",
     );
-    await safeEditMessageTextFromContext(
-      ctx,
-      messageId,
-      `❌ Image editing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastText,
-    );
+    await progress.showError(`Image editing failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }

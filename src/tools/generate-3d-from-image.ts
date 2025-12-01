@@ -1,7 +1,7 @@
-import { type Context, InputFile } from "grammy";
+import type { Context } from "grammy";
 import { logger } from "../logger";
 import { meshyClient } from "../meshy";
-import { safeEditMessageTextFromContext } from "../telegram-utils";
+import { createProgressHandler } from "../progress-handler";
 import type { Tool } from "./types";
 
 export const generate3DFromImageTool: Tool = {
@@ -39,13 +39,9 @@ export const generate3DFromImageTool: Tool = {
 };
 
 async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: number) {
-  const chatId = ctx.chat?.id ?? 0;
+  const progress = createProgressHandler(ctx, messageId);
 
-  let lastText = await safeEditMessageTextFromContext(
-    ctx,
-    messageId,
-    "🔄 Generating 3D model from image...\nProgress: 0%",
-  );
+  await progress.updateProgress({ text: "🔄 Generating 3D model from image...\nProgress: 0%" });
 
   const finalTask = await meshyClient.pollTask(taskId, async (task) => {
     const statusEmoji = {
@@ -56,8 +52,7 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
       CANCELED: "🚫",
     }[task.status];
 
-    const progressText = `${statusEmoji} ${task.status}\nProgress: ${task.progress}%`;
-    lastText = await safeEditMessageTextFromContext(ctx, messageId, progressText, lastText);
+    await progress.updateProgress({ text: `${statusEmoji} ${task.status}\nProgress: ${task.progress}%` });
   });
 
   if (finalTask.status === "SUCCEEDED") {
@@ -66,65 +61,38 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
 
     if (!glbUrl && !fbxUrl) {
       logger.warn({ taskId }, "3D generation completed but no model files found");
-      await safeEditMessageTextFromContext(
-        ctx,
-        messageId,
-        "✅ 3D generation completed, but no model files were found.",
-        lastText,
-      );
+      await progress.showError("3D generation completed, but no model files were found.");
       return;
     }
 
     logger.info({ taskId, glbUrl, fbxUrl }, "3D generation completed successfully");
 
-    await ctx.replyWithChatAction("upload_document");
-
     try {
-      await ctx.api.deleteMessage(chatId, messageId);
-    } catch (error) {
-      console.error("Failed to delete progress message:", error);
-    }
-
-    try {
-      const files: string[] = [];
+      const files: { data: Buffer; filename: string; caption?: string }[] = [];
 
       if (glbUrl) {
         const glbData = await meshyClient.downloadFile(glbUrl);
-        await ctx.api.sendDocument(chatId, new InputFile(glbData, "model.glb"), { caption: "GLB Model" });
-        files.push("GLB");
-
-        if (fbxUrl) await ctx.replyWithChatAction("upload_document");
+        files.push({ data: glbData, filename: "model.glb", caption: "GLB Model" });
       }
 
       if (fbxUrl) {
         const fbxData = await meshyClient.downloadFile(fbxUrl);
-        await ctx.api.sendDocument(chatId, new InputFile(fbxData, "model.fbx"), { caption: "FBX Model" });
-        files.push("FBX");
+        files.push({ data: fbxData, filename: "model.fbx", caption: "FBX Model" });
       }
 
-      await ctx.api.sendMessage(chatId, `✅ 3D model generated successfully!\nFormats: ${files.join(", ")}`);
-    } catch (error) {
-      console.error("Error sending files:", error);
-      await ctx.api.sendMessage(
-        chatId,
-        `✅ 3D model generated!\n\nDownload links:\n${glbUrl ? `GLB: ${glbUrl}\n` : ""}${fbxUrl ? `FBX: ${fbxUrl}` : ""}`,
+      await progress.sendFiles({ files });
+      await progress.sendFinalMessage(
+        `✅ 3D model generated successfully!\nFormats: ${files.map((f) => f.filename.split(".")[1]?.toUpperCase()).join(", ")}`,
       );
+    } catch (error) {
+      logger.error({ error: error instanceof Error ? error.message : error }, "Error sending files");
+      await progress.showError("Failed to send model files");
     }
   } else if (finalTask.status === "FAILED") {
     logger.error({ taskId, error: finalTask.error }, "3D generation failed");
-    await safeEditMessageTextFromContext(
-      ctx,
-      messageId,
-      `❌ 3D generation failed: ${finalTask.error || "Unknown error"}`,
-      lastText,
-    );
+    await progress.showError(`3D generation failed: ${finalTask.error || "Unknown error"}`);
   } else {
     logger.warn({ taskId, status: finalTask.status }, "3D generation ended with unexpected status");
-    await safeEditMessageTextFromContext(
-      ctx,
-      messageId,
-      `🚫 3D generation was ${finalTask.status.toLowerCase()}`,
-      lastText,
-    );
+    await progress.showError(`3D generation was ${finalTask.status.toLowerCase()}`);
   }
 }

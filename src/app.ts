@@ -83,7 +83,13 @@ export class App {
         if (!userMessage) return;
 
         const response = await claude.processMessage(userMessage, ctx);
-        if (response) await ctx.reply(response, { reply_parameters: { message_id: ctx.message.message_id } });
+        if (response) {
+          const replyOptions: { reply_parameters: { message_id: number }; message_thread_id?: number } = {
+            reply_parameters: { message_id: ctx.message.message_id },
+          };
+          if (ctx.message.message_thread_id) replyOptions.message_thread_id = ctx.message.message_thread_id;
+          await ctx.reply(response, replyOptions);
+        }
       } catch (error) {
         logger.error({ error: error instanceof Error ? error.message : error }, "Error processing message");
         await ctx.reply("Sorry, I encountered an error processing your request.");

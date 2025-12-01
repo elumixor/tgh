@@ -1,8 +1,8 @@
 import type { PersonGeneration } from "@google/genai";
-import { type Context, InputFile } from "grammy";
+import type { Context } from "grammy";
 import { geminiClient } from "../gemini";
 import { logger } from "../logger";
-import { safeEditMessageTextFromContext } from "../telegram-utils";
+import { createProgressHandler } from "../progress-handler";
 import type { Tool } from "./types";
 
 export const generateImageTool: Tool = {
@@ -67,16 +67,11 @@ async function handleGeminiGeneration(
   ctx: Context,
   messageId: number,
 ) {
-  const chatId = ctx.chat?.id ?? 0;
-  let lastText: string | undefined;
+  const progress = createProgressHandler(ctx, messageId);
 
   try {
     const count = params.numberOfImages || 1;
-    lastText = await safeEditMessageTextFromContext(
-      ctx,
-      messageId,
-      `🎨 Generating ${count} image${count > 1 ? "s" : ""} with Gemini AI...`,
-    );
+    await progress.updateProgress({ text: `🎨 Generating ${count} image${count > 1 ? "s" : ""} with Gemini AI...` });
 
     const base64Images = await geminiClient.generateImage({
       prompt: params.prompt,
@@ -85,28 +80,20 @@ async function handleGeminiGeneration(
       personGeneration: params.personGeneration as PersonGeneration.ALLOW_ALL,
     });
 
-    await ctx.replyWithChatAction("upload_document");
+    await progress.sendMultiplePhotosAndFiles({
+      items: base64Images.map((image, i) => {
+        const imageBuffer = geminiClient.base64ToBuffer(image);
+        const photoCaption = base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image";
+        return {
+          imageData: imageBuffer,
+          photoCaption,
+          filename: `generated-${i + 1}.png`,
+          fileCaption: "Full quality",
+        };
+      }),
+    });
 
-    try {
-      await ctx.api.deleteMessage(chatId, messageId);
-    } catch (error) {
-      console.error("Failed to delete progress message:", error);
-    }
-
-    for (let i = 0; i < base64Images.length; i++) {
-      const image = base64Images[i];
-      if (!image) continue;
-
-      const imageBuffer = geminiClient.base64ToBuffer(image);
-      const caption = base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image";
-
-      await ctx.api.sendDocument(chatId, new InputFile(imageBuffer, `generated-${i + 1}.png`), { caption });
-
-      if (i < base64Images.length - 1) await ctx.replyWithChatAction("upload_document");
-    }
-
-    await ctx.api.sendMessage(
-      chatId,
+    await progress.sendFinalMessage(
       `✅ Generated ${base64Images.length} image${base64Images.length > 1 ? "s" : ""}\nPrompt: "${params.prompt}"`,
     );
 
@@ -116,11 +103,6 @@ async function handleGeminiGeneration(
       { prompt: params.prompt, error: error instanceof Error ? error.message : error },
       "Image generation failed in handler",
     );
-    await safeEditMessageTextFromContext(
-      ctx,
-      messageId,
-      `❌ Image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastText,
-    );
+    await progress.showError(`Image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
