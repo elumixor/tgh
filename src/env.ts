@@ -18,6 +18,7 @@ const envSchema = z
     // Required API keys
     MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
     GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+    PERPLEXITY_API_KEY: z.string().min(1, "PERPLEXITY_API_KEY is required"),
 
     // Telegram User Client (GramJS)
     TELEGRAM_API_ID: z.coerce.number(),

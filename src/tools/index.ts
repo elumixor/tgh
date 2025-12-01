@@ -8,6 +8,7 @@ import { getMessageHistoryTool } from "./get-message-history";
 import { getMessageMentionsTool } from "./get-message-mentions";
 import { searchMessagesTool } from "./search-messages";
 import type { Tool, ToolContext } from "./types";
+import { webSearchTool } from "./web-search";
 
 const allTools: Tool[] = [
   generate3DFromImageTool,
@@ -17,6 +18,7 @@ const allTools: Tool[] = [
   getMessageMentionsTool,
   getMessageHistoryTool,
   getChatInfoTool,
+  webSearchTool,
 ];
 
 export const tools: Anthropic.Tool[] = allTools.map((tool) => tool.definition);
