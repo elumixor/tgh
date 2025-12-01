@@ -17,6 +17,12 @@ const envSchema = z.object({
   // Required API keys
   MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+
+  // Telegram User Client (GramJS)
+  TELEGRAM_API_ID: z.coerce.number(),
+  TELEGRAM_API_HASH: z.string().min(1, "TELEGRAM_API_HASH is required"),
+  TELEGRAM_SESSION: z.string().min(1, "TELEGRAM_SESSION is required"),
+  TELEGRAM_PHONE_NUMBER: z.string().min(1, "TELEGRAM_PHONE_NUMBER is required"),
 });
 
 // Parse and validate environment variables

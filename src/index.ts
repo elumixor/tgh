@@ -1,7 +1,16 @@
 import { webhookCallback } from "grammy";
 import { App } from "./app";
 import { env } from "./env";
+import { gramjsClient } from "./gramjs-client";
 import { logger } from "./logger";
+
+// Initialize GramJS client
+try {
+  await gramjsClient.connect();
+} catch (error) {
+  logger.error({ error: error instanceof Error ? error.message : error }, "Failed to initialize GramJS");
+  process.exit(1);
+}
 
 const app = new App();
 
@@ -30,3 +39,16 @@ if (env.BOT_MODE === "webhook") {
   app.bot.start();
   logger.info("Bot is running in polling mode");
 }
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  logger.info("Shutting down...");
+  await gramjsClient.disconnect();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  logger.info("Shutting down...");
+  await gramjsClient.disconnect();
+  process.exit(0);
+});

@@ -27,6 +27,8 @@ bun run format       # Format with Biome
 
 - Never run dev in background - ALWAYS ask user to do so. But firstly, check if the process is already running. That is, do this ONLY if you actually require to run the bot. If you just need to test some functionality - write unit tests and run them.
 
+- For `render` commands always specify `-o` options to specify a non-interactive output mode.
+
 - Never split declaration and initialization if it is simple. DON'T do:
 
 ```typescript

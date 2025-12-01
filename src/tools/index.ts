@@ -2,9 +2,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { editImageTool } from "./edit-image";
 import { generate3DFromImageTool } from "./generate-3d-from-image";
 import { generateImageTool } from "./generate-image";
+import { searchMessagesTool } from "./search-messages";
 import type { Tool, ToolContext } from "./types";
 
-const allTools: Tool[] = [generate3DFromImageTool, generateImageTool, editImageTool];
+const allTools: Tool[] = [generate3DFromImageTool, generateImageTool, editImageTool, searchMessagesTool];
 
 export const tools: Anthropic.Tool[] = allTools.map((tool) => tool.definition);
 
