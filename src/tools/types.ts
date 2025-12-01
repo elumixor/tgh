@@ -8,5 +8,5 @@ export interface ToolContext {
 
 export interface Tool {
   definition: Anthropic.Tool;
-  execute: (toolInput: Record<string, unknown>, context?: ToolContext) => Promise<string>;
+  execute: (toolInput: Record<string, unknown>, context?: ToolContext) => Promise<unknown>;
 }

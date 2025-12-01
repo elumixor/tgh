@@ -14,12 +14,12 @@ export async function executeTool(
   toolName: string,
   toolInput: Record<string, unknown>,
   context?: ToolContext,
-): Promise<string> {
+): Promise<unknown> {
   logger.info({ tool: toolName, input: toolInput }, "Tool called");
   const tool = allTools.find((t) => t.definition.name === toolName);
   if (!tool) {
     logger.warn({ tool: toolName }, "Unknown tool");
-    return "Unknown tool";
+    return { error: "Unknown tool" };
   }
   const result = await tool.execute(toolInput, context);
   logger.info({ tool: toolName, result }, "Tool result");
