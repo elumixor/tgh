@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { logger } from "../logger";
 import { editImageTool } from "./edit-image";
 import { generate3DFromImageTool } from "./generate-3d-from-image";
 import { generateImageTool } from "./generate-image";
@@ -14,9 +15,15 @@ export async function executeTool(
   toolInput: Record<string, unknown>,
   context?: ToolContext,
 ): Promise<string> {
+  logger.info({ tool: toolName, input: toolInput }, "Tool called");
   const tool = allTools.find((t) => t.definition.name === toolName);
-  if (!tool) return "Unknown tool";
-  return tool.execute(toolInput, context);
+  if (!tool) {
+    logger.warn({ tool: toolName }, "Unknown tool");
+    return "Unknown tool";
+  }
+  const result = await tool.execute(toolInput, context);
+  logger.info({ tool: toolName, result }, "Tool result");
+  return result;
 }
 
 export type { ToolContext } from "./types";
