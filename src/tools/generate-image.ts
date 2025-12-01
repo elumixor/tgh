@@ -1,6 +1,8 @@
 import type { PersonGeneration } from "@google/genai";
 import { type Context, InputFile } from "grammy";
 import { geminiClient } from "../gemini";
+import { logger } from "../logger";
+import { safeEditMessageTextFromContext } from "../telegram-utils";
 import type { Tool } from "./types";
 
 export const generateImageTool: Tool = {
@@ -43,12 +45,16 @@ export const generateImageTool: Tool = {
     const numberOfImages = toolInput.numberOfImages as number | undefined;
     const personGeneration = toolInput.personGeneration as string | undefined;
 
+    logger.info({ prompt, aspectRatio, numberOfImages, personGeneration }, "Image generation request received");
+
     if (context?.telegramCtx && context?.messageId) {
       handleGeminiGeneration(
         { prompt, aspectRatio, numberOfImages, personGeneration },
         context.telegramCtx,
         context.messageId,
-      ).catch((error) => console.error("Error in image generation:", error));
+      ).catch((error) =>
+        logger.error({ prompt, error: error instanceof Error ? error.message : error }, "Image generation failed"),
+      );
     }
 
     const count = numberOfImages || 1;
@@ -62,11 +68,12 @@ async function handleGeminiGeneration(
   messageId: number,
 ) {
   const chatId = ctx.chat?.id ?? 0;
+  let lastText: string | undefined;
 
   try {
     const count = params.numberOfImages || 1;
-    await ctx.api.editMessageText(
-      chatId,
+    lastText = await safeEditMessageTextFromContext(
+      ctx,
       messageId,
       `🎨 Generating ${count} image${count > 1 ? "s" : ""} with Gemini AI...`,
     );
@@ -102,12 +109,18 @@ async function handleGeminiGeneration(
       chatId,
       `✅ Generated ${base64Images.length} image${base64Images.length > 1 ? "s" : ""}\nPrompt: "${params.prompt}"`,
     );
+
+    logger.info({ prompt: params.prompt, count: base64Images.length }, "Image generation completed successfully");
   } catch (error) {
-    console.error("Gemini generation error:", error);
-    await ctx.api.editMessageText(
-      chatId,
+    logger.error(
+      { prompt: params.prompt, error: error instanceof Error ? error.message : error },
+      "Image generation failed in handler",
+    );
+    await safeEditMessageTextFromContext(
+      ctx,
       messageId,
       `❌ Image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      lastText,
     );
   }
 }

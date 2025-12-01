@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Context } from "grammy";
 import { env } from "./env";
+import { logger } from "./logger";
+import { safeEditMessageTextFromContext } from "./telegram-utils";
 import { executeTool, type ToolContext, tools } from "./tools";
 
 export class ClaudeAssistant {
@@ -82,9 +84,8 @@ Response style:
 
       if (botReplyMessageId && telegramCtx) {
         const content = response.content.find((block) => block.type === "text");
-        if (content && content.type === "text") {
-          await telegramCtx.api.editMessageText(telegramCtx.chat?.id || 0, botReplyMessageId, content.text);
-        }
+        if (content && content.type === "text")
+          await safeEditMessageTextFromContext(telegramCtx, botReplyMessageId, content.text);
         return "";
       }
 
@@ -95,7 +96,7 @@ Response style:
 
       throw new Error("Unexpected response type from Claude");
     } catch (error) {
-      console.error("Claude API error:", error);
+      logger.error({ error: error instanceof Error ? error.message : error }, "Claude API error");
       throw new Error("Failed to process message with Claude API");
     }
   }

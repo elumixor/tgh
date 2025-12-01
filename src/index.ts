@@ -1,6 +1,7 @@
 import { webhookCallback } from "grammy";
 import { App } from "./app";
 import { env } from "./env";
+import { logger } from "./logger";
 
 const app = new App();
 
@@ -8,7 +9,7 @@ if (env.BOT_MODE === "webhook") {
   if (!env.WEBHOOK_URL) throw new Error("WEBHOOK_URL is required for webhook mode");
 
   await app.bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
-  console.log(`Webhook set to: ${env.WEBHOOK_URL}/webhook`);
+  logger.info({ webhookUrl: `${env.WEBHOOK_URL}/webhook` }, "Webhook configured");
 
   const handleWebhook = webhookCallback(app.bot, "std/http");
 
@@ -22,10 +23,10 @@ if (env.BOT_MODE === "webhook") {
     },
   });
 
-  console.log(`Bot server started on port ${env.PORT}`);
+  logger.info({ port: env.PORT }, "Bot server started");
 } else {
-  console.log("Polling mode: starting bot...");
+  logger.info("Polling mode: starting bot...");
   await app.bot.api.deleteWebhook();
   app.bot.start();
-  console.log("Bot is running in polling mode");
+  logger.info("Bot is running in polling mode");
 }

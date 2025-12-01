@@ -1,6 +1,7 @@
 import { Bot } from "grammy";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
+import { logger } from "./logger";
 import { isBotMentioned } from "./utils/mention-parser";
 
 export class App {
@@ -13,7 +14,7 @@ export class App {
       this.botUsername = me.username;
       this.botUserId = me.id;
       claude.botName = me.username;
-      console.log(`Bot username: @${me.username}, ID: ${me.id}`);
+      logger.info({ username: me.username, userId: me.id }, "Bot initialized");
     });
 
     this.bot.on("message", async (ctx) => {
@@ -24,7 +25,7 @@ export class App {
 
         if (!isBotMentioned(ctx.message, this.botUsername, this.botUserId)) return;
 
-        console.log("Received mention in group from:", ctx.from?.username, "ID:", ctx.from?.id);
+        logger.info({ username: ctx.from?.username, userId: ctx.from?.id }, "Received mention in group");
       } else {
         if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
       }
@@ -67,7 +68,7 @@ export class App {
         const response = await claude.processMessage(userMessage, ctx);
         if (response) await ctx.reply(response, { reply_parameters: { message_id: ctx.message.message_id } });
       } catch (error) {
-        console.error("Error processing message:", error);
+        logger.error({ error: error instanceof Error ? error.message : error }, "Error processing message");
         await ctx.reply("Sorry, I encountered an error processing your request.");
       }
     });

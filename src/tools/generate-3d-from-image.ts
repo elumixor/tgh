@@ -1,5 +1,7 @@
 import { type Context, InputFile } from "grammy";
+import { logger } from "../logger";
 import { meshyClient } from "../meshy";
+import { safeEditMessageTextFromContext } from "../telegram-utils";
 import type { Tool } from "./types";
 
 export const generate3DFromImageTool: Tool = {
@@ -21,11 +23,14 @@ export const generate3DFromImageTool: Tool = {
   execute: async (toolInput, context) => {
     const image_url = toolInput.image_url as string;
 
+    logger.info({ image_url }, "3D generation request received");
+
     const taskId = await meshyClient.createImageTo3D({ image_url });
+    logger.info({ taskId, image_url }, "3D generation task created");
 
     if (context?.telegramCtx && context?.messageId) {
       handleMeshy3DGeneration(taskId, context.telegramCtx, context.messageId).catch((error) => {
-        console.error("Error in background 3D generation:", error);
+        logger.error({ taskId, error: error instanceof Error ? error.message : error }, "3D generation failed");
       });
     }
 
@@ -36,7 +41,11 @@ export const generate3DFromImageTool: Tool = {
 async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: number) {
   const chatId = ctx.chat?.id ?? 0;
 
-  await ctx.api.editMessageText(chatId, messageId, "🔄 Generating 3D model from image...\nProgress: 0%");
+  let lastText = await safeEditMessageTextFromContext(
+    ctx,
+    messageId,
+    "🔄 Generating 3D model from image...\nProgress: 0%",
+  );
 
   const finalTask = await meshyClient.pollTask(taskId, async (task) => {
     const statusEmoji = {
@@ -48,12 +57,7 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
     }[task.status];
 
     const progressText = `${statusEmoji} ${task.status}\nProgress: ${task.progress}%`;
-
-    try {
-      await ctx.api.editMessageText(chatId, messageId, progressText);
-    } catch (error) {
-      console.error("Error updating message:", error);
-    }
+    lastText = await safeEditMessageTextFromContext(ctx, messageId, progressText, lastText);
   });
 
   if (finalTask.status === "SUCCEEDED") {
@@ -61,9 +65,17 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
     const fbxUrl = finalTask.model_urls?.fbx;
 
     if (!glbUrl && !fbxUrl) {
-      await ctx.api.editMessageText(chatId, messageId, "✅ 3D generation completed, but no model files were found.");
+      logger.warn({ taskId }, "3D generation completed but no model files found");
+      await safeEditMessageTextFromContext(
+        ctx,
+        messageId,
+        "✅ 3D generation completed, but no model files were found.",
+        lastText,
+      );
       return;
     }
+
+    logger.info({ taskId, glbUrl, fbxUrl }, "3D generation completed successfully");
 
     await ctx.replyWithChatAction("upload_document");
 
@@ -99,8 +111,20 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
       );
     }
   } else if (finalTask.status === "FAILED") {
-    await ctx.api.editMessageText(chatId, messageId, `❌ 3D generation failed: ${finalTask.error || "Unknown error"}`);
+    logger.error({ taskId, error: finalTask.error }, "3D generation failed");
+    await safeEditMessageTextFromContext(
+      ctx,
+      messageId,
+      `❌ 3D generation failed: ${finalTask.error || "Unknown error"}`,
+      lastText,
+    );
   } else {
-    await ctx.api.editMessageText(chatId, messageId, `🚫 3D generation was ${finalTask.status.toLowerCase()}`);
+    logger.warn({ taskId, status: finalTask.status }, "3D generation ended with unexpected status");
+    await safeEditMessageTextFromContext(
+      ctx,
+      messageId,
+      `🚫 3D generation was ${finalTask.status.toLowerCase()}`,
+      lastText,
+    );
   }
 }

@@ -1,5 +1,7 @@
 import { type Context, InputFile } from "grammy";
 import { geminiClient } from "../gemini";
+import { logger } from "../logger";
+import { safeEditMessageTextFromContext } from "../telegram-utils";
 import type { Tool } from "./types";
 
 export const editImageTool: Tool = {
@@ -39,12 +41,16 @@ export const editImageTool: Tool = {
       return "No image URLs provided. Please attach an image or reply to a message containing an image.";
     }
 
+    logger.info({ prompt, imageCount: image_urls.length, aspectRatio }, "Image editing request received");
+
     if (context?.telegramCtx && context?.messageId) {
       handleGeminiEditing(
         { prompt, referenceImages: image_urls, aspectRatio },
         context.telegramCtx,
         context.messageId,
-      ).catch((error) => console.error("Error in image editing:", error));
+      ).catch((error) =>
+        logger.error({ prompt, error: error instanceof Error ? error.message : error }, "Image editing failed"),
+      );
     }
 
     const refCount = image_urls.length - 1;
@@ -60,6 +66,7 @@ async function handleGeminiEditing(
   messageId: number,
 ) {
   const chatId = ctx.chat?.id ?? 0;
+  let lastText: string | undefined;
 
   try {
     const refCount = params.referenceImages.length - 1;
@@ -68,7 +75,7 @@ async function handleGeminiEditing(
         ? `🎨 Editing image with Gemini AI...\nUsing ${refCount} reference image${refCount > 1 ? "s" : ""} for style/context`
         : "🎨 Editing image with Gemini AI...";
 
-    await ctx.api.editMessageText(chatId, messageId, statusText);
+    lastText = await safeEditMessageTextFromContext(ctx, messageId, statusText);
 
     const base64Image = await geminiClient.editImage({
       prompt: params.prompt,
@@ -88,12 +95,18 @@ async function handleGeminiEditing(
     await ctx.api.sendDocument(chatId, new InputFile(imageBuffer, "edited.png"), { caption: "Edited image" });
 
     await ctx.api.sendMessage(chatId, `✅ Image edited\nPrompt: "${params.prompt}"`);
+
+    logger.info({ prompt: params.prompt }, "Image editing completed successfully");
   } catch (error) {
-    console.error("Gemini editing error:", error);
-    await ctx.api.editMessageText(
-      chatId,
+    logger.error(
+      { prompt: params.prompt, error: error instanceof Error ? error.message : error },
+      "Image editing failed in handler",
+    );
+    await safeEditMessageTextFromContext(
+      ctx,
       messageId,
       `❌ Image editing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      lastText,
     );
   }
 }
