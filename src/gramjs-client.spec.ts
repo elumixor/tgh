@@ -134,7 +134,9 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
 
       if (results.length > 1) {
         for (let i = 1; i < results.length; i++) {
-          expect(results[i - 1].date.getTime()).toBeGreaterThanOrEqual(results[i].date.getTime());
+          const prev = results[i - 1];
+          const curr = results[i];
+          if (prev && curr) expect(prev.date.getTime()).toBeGreaterThanOrEqual(curr.date.getTime());
         }
         console.log("Messages are in reverse chronological order");
       }
