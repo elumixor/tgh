@@ -2,6 +2,7 @@ import type { Context } from "grammy";
 import { env } from "../env";
 import { logger } from "../logger";
 import { createProgressHandler } from "../progress-handler";
+import { sendLongMessage } from "../telegram-message-sender";
 import type { Tool } from "./types";
 
 interface PerplexityMessage {
@@ -103,8 +104,9 @@ async function handleWebSearch(query: string, ctx: Context, messageId: number) {
     await progress.updateProgress({ text: "🔍 Searching the web..." });
     const result = await performWebSearch(query);
 
-    await ctx.api.sendMessage(ctx.chat?.id ?? 0, `🔍 Web Search Results\n\n${result}`, {
-      message_thread_id: ctx.message?.message_thread_id,
+    await sendLongMessage(ctx.api, `🔍 Web Search Results\n\n${result}`, {
+      chatId: ctx.chat?.id ?? 0,
+      threadId: ctx.message?.message_thread_id,
     });
 
     return result;

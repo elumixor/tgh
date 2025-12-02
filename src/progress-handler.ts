@@ -1,5 +1,6 @@
 import { type Context, InputFile } from "grammy";
 import { logger } from "./logger";
+import { sendLongMessage } from "./telegram-message-sender";
 import { safeEditMessageTextFromContext } from "./telegram-utils";
 
 interface ProgressUpdate {
@@ -97,7 +98,7 @@ export class ProgressHandler {
   }
 
   async sendFinalMessage(text: string): Promise<void> {
-    await this.ctx.api.sendMessage(this.chatId, text, { message_thread_id: this.threadId });
+    await sendLongMessage(this.ctx.api, text, { chatId: this.chatId, threadId: this.threadId });
   }
 
   async showError(errorMessage: string): Promise<void> {

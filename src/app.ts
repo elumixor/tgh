@@ -3,6 +3,7 @@ import type { Document, PhotoSize } from "grammy/types";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
 import { logger } from "./logger";
+import { replyWithLongMessage } from "./telegram-message-sender";
 import { isImageDocument } from "./utils/image-detector";
 import { isBotMentioned } from "./utils/mention-parser";
 
@@ -100,7 +101,7 @@ export class App {
             reply_parameters: { message_id: ctx.message.message_id },
           };
           if (ctx.message.message_thread_id) replyOptions.message_thread_id = ctx.message.message_thread_id;
-          await ctx.reply(response, replyOptions);
+          await replyWithLongMessage(ctx, response, replyOptions);
         }
       } catch (error) {
         logger.error({ error: formatError(error) }, "Error processing message");
