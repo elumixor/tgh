@@ -21,6 +21,10 @@ const envSchema = z
     PERPLEXITY_API_KEY: z.string().min(1, "PERPLEXITY_API_KEY is required"),
     OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
 
+    // Notion Integration
+    NOTION_API_KEY: z.string().min(1, "NOTION_API_KEY is required"),
+    NOTION_DATABASE_ID: z.string().min(1, "NOTION_DATABASE_ID is required"),
+
     // Telegram User Client (GramJS)
     TELEGRAM_API_ID: z.coerce.number(),
     TELEGRAM_API_HASH: z.string().min(1, "TELEGRAM_API_HASH is required"),
