@@ -6,7 +6,7 @@ import { safeEditMessageTextFromContext } from "./telegram-utils";
 import { executeTool, type ToolContext, tools } from "./tools";
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
-const CLAUDE_MAX_TOKENS = 1024;
+const CLAUDE_MAX_TOKENS = 2048;
 
 interface ToolExecutionLog {
   toolName: string;
@@ -29,6 +29,8 @@ Context awareness:
 - You operate in Telegram chats (private or group conversations)
 - When users refer to "this message" or similar phrases, they typically mean a message they have replied to
 - Message replies provide important context for understanding user requests
+- When the message includes voice, transcribe it to text and analyze the transcription
+- Always try to solve user requests autonomously using the provided tools, like getting message info, searching the message history, before asking for more information
 
 Response style:
 - Short, concise, minimal
@@ -46,10 +48,24 @@ Response style:
         system: systemPrompt,
         tools,
         messages,
+        thinking: {
+          type: "enabled",
+          budget_tokens: 1024,
+        },
       });
 
       let botReplyMessageId: number | undefined;
       const toolLogs: ToolExecutionLog[] = [];
+
+      const thinkingBlock = response.content.find((block) => block.type === "thinking");
+
+      if (thinkingBlock && "thinking" in thinkingBlock && telegramCtx) {
+        const abbreviated = this.abbreviateThinking(thinkingBlock.thinking);
+        const sentMessage = await telegramCtx.reply(`💭 ${abbreviated}`, {
+          reply_parameters: { message_id: telegramCtx.message?.message_id || 0 },
+        });
+        botReplyMessageId = sentMessage.message_id;
+      }
 
       while (response.stop_reason === "tool_use") {
         const toolUses = response.content.filter((block) => block.type === "tool_use");
@@ -122,6 +138,10 @@ Response style:
           system: systemPrompt,
           tools,
           messages,
+          thinking: {
+            type: "enabled",
+            budget_tokens: 1024,
+          },
         });
       }
 
@@ -151,6 +171,16 @@ Response style:
       .join("\n");
 
     await safeEditMessageTextFromContext(ctx, messageId, `Processing...\n\n${logText}`);
+  }
+
+  private abbreviateThinking(thinking: string): string {
+    const lines = thinking.split("\n").filter((line) => line.trim().length > 0);
+    if (lines.length === 0) return "Analyzing...";
+
+    const firstLine = lines[0]?.trim() ?? "Analyzing...";
+    const maxLength = 100;
+    if (firstLine.length <= maxLength) return firstLine;
+    return `${firstLine.substring(0, maxLength)}...`;
   }
 }
 

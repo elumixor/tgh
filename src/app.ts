@@ -1,8 +1,9 @@
 import { Bot } from "grammy";
-import type { PhotoSize } from "grammy/types";
+import type { Document, PhotoSize } from "grammy/types";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
 import { logger } from "./logger";
+import { isImageDocument } from "./utils/image-detector";
 import { isBotMentioned } from "./utils/mention-parser";
 
 const formatError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -48,10 +49,12 @@ export class App {
           {
             messageId: ctx.message.message_id,
             text: ctx.message.text || ctx.message.caption,
-            hasPhoto: !!ctx.message.photo,
+            hasImage: !!ctx.message.photo || (!!ctx.message.document && isImageDocument(ctx.message.document)),
             replyToMessageId: ctx.message.reply_to_message?.message_id,
             replyToText: ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption,
-            replyToHasPhoto: !!ctx.message.reply_to_message?.photo,
+            replyToHasImage:
+              !!ctx.message.reply_to_message?.photo ||
+              (!!ctx.message.reply_to_message?.document && isImageDocument(ctx.message.reply_to_message.document)),
           },
           "Processing incoming message",
         );
@@ -62,14 +65,23 @@ export class App {
         if (ctx.message.photo) {
           const url = await this.extractPhotoUrl(ctx.message.photo, this.bot);
           if (url) imageUrls.push(url);
+        } else if (ctx.message.document && isImageDocument(ctx.message.document)) {
+          const url = await this.extractDocumentUrl(ctx.message.document, this.bot);
+          if (url) imageUrls.push(url);
         }
 
         if (ctx.message.reply_to_message) {
+          const replyId = ctx.message.reply_to_message.message_id;
           const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption;
-          if (replyText) userMessage = `${userMessage}\n\nReplied-to message: "${replyText}"`;
+
+          userMessage = `${userMessage}\n\nContext: Replying to message ${replyId}`;
+          if (replyText) userMessage += `: "${replyText}"`;
 
           if (ctx.message.reply_to_message.photo) {
             const url = await this.extractPhotoUrl(ctx.message.reply_to_message.photo, this.bot);
+            if (url) imageUrls.push(url);
+          } else if (ctx.message.reply_to_message.document && isImageDocument(ctx.message.reply_to_message.document)) {
+            const url = await this.extractDocumentUrl(ctx.message.reply_to_message.document, this.bot);
             if (url) imageUrls.push(url);
           }
         }
@@ -101,5 +113,9 @@ export class App {
     const photo = photos.at(-1);
     if (!photo) return undefined;
     return getPhotoUrl(photo.file_id, bot);
+  }
+
+  private async extractDocumentUrl(document: Document, bot: Bot): Promise<string | undefined> {
+    return getPhotoUrl(document.file_id, bot);
   }
 }

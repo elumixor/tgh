@@ -5,8 +5,10 @@ import { generate3DFromImageTool } from "./generate-3d-from-image";
 import { generateImageTool } from "./generate-image";
 import { getChatInfoTool } from "./get-chat-info";
 import { getMessageHistoryTool } from "./get-message-history";
+import { getMessageInfoTool } from "./get-message-info";
 import { getMessageMentionsTool } from "./get-message-mentions";
 import { searchMessagesTool } from "./search-messages";
+import { transcribeVoiceTool } from "./transcribe-voice";
 import type { Tool, ToolContext } from "./types";
 import { webSearchTool } from "./web-search";
 
@@ -17,7 +19,9 @@ const allTools: Tool[] = [
   searchMessagesTool,
   getMessageMentionsTool,
   getMessageHistoryTool,
+  getMessageInfoTool,
   getChatInfoTool,
+  transcribeVoiceTool,
   webSearchTool,
 ];
 
