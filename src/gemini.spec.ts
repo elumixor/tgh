@@ -32,7 +32,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GeminiClient (manual)", () => {
       if (!images[0]) throw new Error("No image generated");
       expect(images[0].length).toBeGreaterThan(0);
 
-      const buffer = client.base64ToBuffer(images[0]);
+      const buffer = client.convertBase64ToBuffer(images[0]);
       writeFileSync(join(outputDir, "generated-single.png"), buffer);
     },
     { timeout: 30000 },
@@ -55,7 +55,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GeminiClient (manual)", () => {
         if (!image) throw new Error(`No image generated at index ${i}`);
         expect(image.length).toBeGreaterThan(0);
 
-        const buffer = client.base64ToBuffer(image);
+        const buffer = client.convertBase64ToBuffer(image);
         writeFileSync(join(outputDir, `generated-multi-${i + 1}.png`), buffer);
       }
     },
@@ -76,7 +76,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GeminiClient (manual)", () => {
       expect(images[0]).toBeString();
       if (!images[0]) throw new Error("No image generated");
 
-      const buffer = client.base64ToBuffer(images[0]);
+      const buffer = client.convertBase64ToBuffer(images[0]);
       writeFileSync(join(outputDir, `generated-${aspectRatio.replace(":", "x")}.png`), buffer);
 
       const { width, height } = getPngDimensions(buffer);

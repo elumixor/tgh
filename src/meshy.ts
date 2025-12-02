@@ -105,12 +105,12 @@ export class MeshyClient {
     throw new Error(`Polling timeout: task ${taskId} did not complete after ${maxAttempts} attempts`);
   }
 
-  async downloadFile(url: string): Promise<Uint8Array> {
+  async downloadFile(url: string): Promise<Buffer> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.status}`);
     }
-    return new Uint8Array(await response.arrayBuffer());
+    return Buffer.from(await response.arrayBuffer());
   }
 }
 

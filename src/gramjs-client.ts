@@ -1,6 +1,7 @@
 import { TelegramClient } from "telegram";
 import { Logger } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
+import { Api } from "telegram/tl";
 import { env } from "./env";
 import { logger } from "./logger";
 
@@ -96,6 +97,66 @@ export class GramJSClient {
       date: new Date(msg.date * 1000),
       senderId: msg.senderId?.valueOf() as number | undefined,
     }));
+  }
+
+  async getMessageInfo(messageId: number): Promise<{
+    id: number;
+    text: string;
+    date: Date;
+    senderId?: number;
+    voice?: { fileId: string; duration: number; mimeType: string };
+    photo?: { fileId: string };
+    document?: { fileId: string; fileName?: string; mimeType?: string };
+  }> {
+    if (!this.initialized) throw new Error("GramJS client not initialized");
+
+    const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, { ids: [messageId] });
+    const msg = messages[0];
+    if (!msg) throw new Error(`Message ${messageId} not found`);
+
+    const result: {
+      id: number;
+      text: string;
+      date: Date;
+      senderId?: number;
+      voice?: { fileId: string; duration: number; mimeType: string };
+      photo?: { fileId: string };
+      document?: { fileId: string; fileName?: string; mimeType?: string };
+    } = {
+      id: msg.id,
+      text: msg.text || "",
+      date: new Date(msg.date * 1000),
+      senderId: msg.senderId?.valueOf() as number | undefined,
+    };
+
+    if (msg.media instanceof Api.MessageMediaDocument && msg.media.document instanceof Api.Document) {
+      const doc = msg.media.document;
+      const isVoice = msg.media.voice === true;
+
+      if (isVoice) {
+        result.voice = {
+          fileId: doc.id.toString(),
+          duration:
+            doc.attributes?.find((a): a is Api.DocumentAttributeAudio => a instanceof Api.DocumentAttributeAudio)
+              ?.duration ?? 0,
+          mimeType: doc.mimeType || "audio/ogg",
+        };
+      } else {
+        result.document = {
+          fileId: doc.id.toString(),
+          fileName: doc.attributes?.find(
+            (a): a is Api.DocumentAttributeFilename => a instanceof Api.DocumentAttributeFilename,
+          )?.fileName,
+          mimeType: doc.mimeType,
+        };
+      }
+    }
+
+    if (msg.media instanceof Api.MessageMediaPhoto && msg.media.photo instanceof Api.Photo) {
+      result.photo = { fileId: msg.media.photo.id.toString() };
+    }
+
+    return result;
   }
 
   async getChatInfo(): Promise<{
