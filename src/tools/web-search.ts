@@ -1,3 +1,4 @@
+import Perplexity from "@perplexity-ai/perplexity_ai";
 import type { Context } from "grammy";
 import { env } from "../env";
 import { logger } from "../logger";
@@ -5,29 +6,9 @@ import { createProgressHandler } from "../progress-handler";
 import { sendLongMessage } from "../telegram-message-sender";
 import type { Tool } from "./types";
 
-interface PerplexityMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-interface PerplexityResponse {
-  id: string;
-  model: string;
-  choices: Array<{
-    index: number;
-    finish_reason: string;
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  citations?: string[];
-}
+const perplexityClient = new Perplexity({
+  apiKey: env.PERPLEXITY_API_KEY,
+});
 
 export const webSearchTool: Tool = {
   definition: {
@@ -58,34 +39,17 @@ export const webSearchTool: Tool = {
 };
 
 async function performWebSearch(query: string): Promise<string> {
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.PERPLEXITY_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        {
-          role: "user",
-          content: query,
-        },
-      ] satisfies PerplexityMessage[],
-    }),
+  const response = await perplexityClient.chat.completions.create({
+    model: "sonar",
+    messages: [{ role: "user", content: query }],
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Perplexity API error: ${response.status} ${errorText}`);
-  }
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error("No response from Perplexity API");
 
-  const data = (await response.json()) as PerplexityResponse;
-  const answer = data.choices[0]?.message.content;
-
-  if (!answer) throw new Error("No response from Perplexity API");
-
-  const citations = data.citations;
+  const answer =
+    typeof content === "string" ? content : content.map((chunk) => ("text" in chunk ? chunk.text : "")).join("");
+  const citations = response.citations;
   let result = answer;
 
   if (citations && citations.length > 0) {

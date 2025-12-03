@@ -24,6 +24,7 @@ interface GeminiImagePart {
 export class GeminiClient {
   private readonly client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   private readonly model = "gemini-2.5-flash-image";
+  private readonly visionModel = "gemini-2.0-flash";
 
   async generateImage(params: GenerateImageParams): Promise<string[]> {
     const numberOfImages = params.numberOfImages || 1;
@@ -101,6 +102,21 @@ export class GeminiClient {
     }
 
     return { inlineData: { mimeType, data: base64 } };
+  }
+
+  async analyzeImage(imageUrl: string, prompt?: string): Promise<string> {
+    const imagePart = await this.urlToImagePart(imageUrl);
+    const textPrompt = prompt || "Analyze this image in detail. Describe what you see.";
+
+    const response = await this.client.models.generateContent({
+      model: this.visionModel,
+      contents: [imagePart, { text: textPrompt }],
+    });
+
+    const text = response.candidates?.[0]?.content?.parts?.find((part) => "text" in part);
+    if (!text || !("text" in text) || !text.text) throw new Error("No text response from Gemini vision API");
+
+    return text.text;
   }
 
   convertBase64ToBuffer(base64: string): Buffer {

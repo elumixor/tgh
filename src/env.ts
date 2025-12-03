@@ -11,6 +11,7 @@ const envSchema = z
     // Optional with defaults
     BOT_MODE: z.enum(["polling", "webhook"]).default("polling"),
     PORT: z.coerce.number().default(10000),
+    AGENT_MODE: z.enum(["single", "multi"]).default("single"),
 
     // Optional
     WEBHOOK_URL: z.string().optional(),
@@ -31,6 +32,9 @@ const envSchema = z
     TELEGRAM_SESSION: z.string().min(1, "TELEGRAM_SESSION is required"),
     TELEGRAM_SESSION_LOCAL: z.string().optional(),
     TELEGRAM_PHONE_NUMBER: z.string().min(1, "TELEGRAM_PHONE_NUMBER is required"),
+
+    // Google Drive
+    GOOGLE_DRIVE_CREDENTIALS: z.string().min(1, "GOOGLE_DRIVE_CREDENTIALS is required"),
   })
   .refine((data) => data.BOT_MODE !== "webhook" || data.WEBHOOK_URL, {
     message: "WEBHOOK_URL is required when BOT_MODE is 'webhook'",

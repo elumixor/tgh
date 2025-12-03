@@ -1,6 +1,7 @@
 import type { Api, Context } from "grammy";
 import { logger } from "./logger";
 import { sendLongMessage } from "./telegram-message-sender";
+import { markdownToTelegramHtml } from "./utils/markdown-to-telegram-html";
 
 export async function safeEditMessageText(
   api: Api,
@@ -11,8 +12,10 @@ export async function safeEditMessageText(
 ): Promise<string> {
   if (newText === lastText) return lastText;
 
+  const htmlText = markdownToTelegramHtml(newText);
+
   try {
-    await api.editMessageText(chatId, messageId, newText);
+    await api.editMessageText(chatId, messageId, htmlText, { parse_mode: "HTML" });
     return newText;
   } catch (error) {
     logger.debug({ error: error instanceof Error ? error.message : error, messageId }, "Failed to update message");

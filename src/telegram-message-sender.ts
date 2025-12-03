@@ -1,6 +1,7 @@
 import type { Api, Context } from "grammy";
 import { logger } from "./logger";
 import { splitMessage } from "./telegram-message-splitter";
+import { markdownToTelegramHtml } from "./utils/markdown-to-telegram-html";
 
 interface SendOptions {
   chatId: number;
@@ -9,7 +10,8 @@ interface SendOptions {
 }
 
 export async function sendLongMessage(api: Api, text: string, options: SendOptions): Promise<void> {
-  const chunks = splitMessage(text);
+  const htmlText = markdownToTelegramHtml(text);
+  const chunks = splitMessage(htmlText);
 
   let previousMessageId = options.replyToMessageId;
 
@@ -20,7 +22,8 @@ export async function sendLongMessage(api: Api, text: string, options: SendOptio
     const sendOptions: {
       message_thread_id?: number;
       reply_parameters?: { message_id: number };
-    } = {};
+      parse_mode: "HTML";
+    } = { parse_mode: "HTML" };
 
     if (options.threadId) sendOptions.message_thread_id = options.threadId;
     if (previousMessageId) sendOptions.reply_parameters = { message_id: previousMessageId };

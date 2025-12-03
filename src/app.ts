@@ -1,9 +1,17 @@
 import { Bot } from "grammy";
 import type { Document, PhotoSize } from "grammy/types";
+import { ChatInfoAgent } from "./agents/chat-info-agent";
+import { DriveAgent } from "./agents/drive-agent";
+import { ImageAgent } from "./agents/image-agent";
+import { KnowledgeAgent } from "./agents/knowledge-agent";
+import { MasterAgent } from "./agents/master-agent";
+import { UtilityAgent } from "./agents/utility-agent";
+import { WebAgent } from "./agents/web-agent";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
 import { logger } from "./logger";
 import { replyWithLongMessage } from "./telegram-message-sender";
+import { allTools } from "./tools";
 import { isImageDocument } from "./utils/image-detector";
 import { isBotMentioned } from "./utils/mention-parser";
 
@@ -18,10 +26,29 @@ export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
   private botUsername = "";
   private botUserId = 0;
+  private masterAgent?: MasterAgent;
 
   constructor() {
+    if (env.AGENT_MODE === "multi") this.initializeMasterAgent();
     this.initializeBot();
     this.setupMessageHandler();
+  }
+
+  private initializeMasterAgent(): void {
+    this.masterAgent = new MasterAgent();
+
+    // Register agents
+    this.masterAgent.registerTool(new ImageAgent());
+    this.masterAgent.registerTool(new ChatInfoAgent());
+    this.masterAgent.registerTool(new KnowledgeAgent());
+    this.masterAgent.registerTool(new WebAgent());
+    this.masterAgent.registerTool(new UtilityAgent());
+    this.masterAgent.registerTool(new DriveAgent());
+
+    // Register direct tools
+    for (const tool of allTools) this.masterAgent.registerTool(tool);
+
+    logger.info("Master agent initialized with all tools");
   }
 
   private initializeBot(): void {
@@ -95,7 +122,13 @@ export class App {
 
         if (!userMessage) return;
 
-        const response = await claude.processMessage(userMessage, ctx);
+        let response: string;
+        if (env.AGENT_MODE === "multi" && this.masterAgent) {
+          response = await this.masterAgent.processMessage(userMessage, ctx);
+        } else {
+          response = await claude.processMessage(userMessage, ctx);
+        }
+
         if (response) {
           const replyOptions: { reply_parameters: { message_id: number }; message_thread_id?: number } = {
             reply_parameters: { message_id: ctx.message.message_id },

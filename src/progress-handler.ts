@@ -21,6 +21,7 @@ export class ProgressHandler {
     private readonly messageId: number,
     private readonly chatId: number,
     private readonly threadId?: number,
+    private readonly replyToMessageId?: number,
   ) {}
 
   async updateProgress(update: ProgressUpdate): Promise<void> {
@@ -38,6 +39,7 @@ export class ProgressHandler {
     const photoMessage = await this.ctx.api.sendPhoto(this.chatId, new InputFile(params.imageData, "photo.png"), {
       caption: params.photoCaption,
       message_thread_id: this.threadId,
+      reply_parameters: this.replyToMessageId ? { message_id: this.replyToMessageId } : undefined,
     });
 
     await this.deleteProgressMessage();
@@ -63,6 +65,7 @@ export class ProgressHandler {
       const photoMessage = await this.ctx.api.sendPhoto(this.chatId, new InputFile(item.imageData, "photo.png"), {
         caption: item.photoCaption,
         message_thread_id: this.threadId,
+        reply_parameters: this.replyToMessageId && i === 0 ? { message_id: this.replyToMessageId } : undefined,
       });
 
       if (i === 0) await this.deleteProgressMessage();
@@ -117,5 +120,6 @@ export class ProgressHandler {
 export function createProgressHandler(ctx: Context, messageId: number): ProgressHandler {
   const chatId = ctx.chat?.id ?? 0;
   const threadId = ctx.message?.message_thread_id;
-  return new ProgressHandler(ctx, messageId, chatId, threadId);
+  const replyToMessageId = ctx.message?.message_id;
+  return new ProgressHandler(ctx, messageId, chatId, threadId, replyToMessageId);
 }

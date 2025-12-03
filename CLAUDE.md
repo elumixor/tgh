@@ -31,6 +31,8 @@ bun run format       # Format with Biome
 
 - For `render` commands always specify `-o` options to specify a non-interactive output mode.
 
+- ALWAYS use `??` operator instead of `||` when providing default values, unless you specifically want to treat falsy values (like `0` or `""`) as needing a default.
+
 - Never split declaration and initialization if it is simple. DON'T do:
 
 ```typescript
