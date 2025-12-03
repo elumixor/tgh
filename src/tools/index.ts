@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "../logger";
 import { addMemoryTool } from "./add-memory";
 import { analyzeImageTool } from "./analyze-image";
+import { createDriveFolderTool } from "./create-drive-folder";
 import { deleteDriveFileTool } from "./delete-drive-file";
 import { downloadDriveFileTool } from "./download-drive-file";
 import { editImageTool } from "./edit-image";
@@ -46,6 +47,7 @@ export const allTools: Tool[] = [
   getMemoryTool,
   getAPIBalancesTool,
   listDriveFilesTool,
+  createDriveFolderTool,
   searchDriveFilesTool,
   downloadDriveFileTool,
   uploadDriveFileTool,

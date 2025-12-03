@@ -10,7 +10,7 @@ export const uploadDriveFileTool: Tool = {
   definition: {
     name: "upload_drive_file",
     description:
-      "Upload a file from Telegram to Google Drive. The file must have been sent in the current or a recent message. Use this when the user wants to save a file to their Drive.",
+      "Upload a file from Telegram to Google Drive. The file must have been sent in the current or a recent message. IMPORTANT: You must specify a folder_id - service accounts cannot upload to root. Use list_drive_files to get folder IDs, or create_drive_folder to create a new folder first.",
     input_schema: {
       type: "object",
       properties: {
@@ -22,19 +22,19 @@ export const uploadDriveFileTool: Tool = {
         folder_id: {
           type: "string",
           description:
-            "Optional folder ID where to upload the file. If not provided, uploads to the root folder. Get folder IDs from list_drive_files or search_drive_files.",
+            "The folder ID where to upload the file. REQUIRED - service accounts cannot upload to root. Get folder IDs from list_drive_files or create a folder with create_drive_folder first.",
         },
         file_name: {
           type: "string",
           description: "Optional custom name for the file on Drive. If not provided, uses the original filename.",
         },
       },
-      required: ["message_id"],
+      required: ["message_id", "folder_id"],
     },
   },
   execute: async (toolInput, context) => {
     const messageId = toolInput.message_id as number;
-    const folderId = (toolInput.folder_id as string) || "root";
+    const folderId = toolInput.folder_id as string;
     const customFileName = toolInput.file_name as string | undefined;
 
     logger.info({ messageId, folderId, customFileName }, "Uploading file to Drive");
