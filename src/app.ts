@@ -10,7 +10,6 @@ import { WebAgent } from "./agents/web-agent";
 import { env } from "./env";
 import { logger } from "./logger";
 import { replyWithLongMessage } from "./telegram-message-sender";
-import { allTools } from "./tools";
 import { isImageDocument } from "./utils/image-detector";
 import { isBotMentioned } from "./utils/mention-parser";
 
@@ -34,7 +33,7 @@ export class App {
   }
 
   private initializeMasterAgent(): void {
-    // Register agents
+    // Register specialized agents only - they handle their own tools
     this.masterAgent.registerTool(new ImageAgent());
     this.masterAgent.registerTool(new ChatInfoAgent());
     this.masterAgent.registerTool(new KnowledgeAgent());
@@ -42,10 +41,7 @@ export class App {
     this.masterAgent.registerTool(new UtilityAgent());
     this.masterAgent.registerTool(new DriveAgent());
 
-    // Register direct tools
-    for (const tool of allTools) this.masterAgent.registerTool(tool);
-
-    logger.info("Master agent initialized with all tools");
+    logger.info("Master agent initialized with specialized agents");
   }
 
   private initializeBot(): void {
