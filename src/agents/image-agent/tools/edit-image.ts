@@ -1,8 +1,8 @@
+import type { Tool } from "agents/agent";
 import type { Context } from "grammy";
 import { logger } from "logger";
-import { createProgressHandler } from "progress-handler";
 import { geminiClient } from "services/gemini/gemini";
-import type { Tool } from "shared/types";
+import { createProgressHandler } from "utils/progress-handler";
 
 export const editImageTool: Tool = {
   definition: {

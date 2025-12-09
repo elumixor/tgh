@@ -14,14 +14,6 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   });
 
   test(
-    "should connect successfully",
-    async () => {
-      expect(client).toBeDefined();
-    },
-    { timeout: 10000 },
-  );
-
-  test(
     "should search for messages with a common keyword",
     async () => {
       const query = "cat";

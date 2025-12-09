@@ -15,16 +15,7 @@
     "noEmit": true,
 
     // Path aliases
-    "baseUrl": ".",
-    "paths": {
-      "agents/*": ["src/agents/*"],
-      "services/*": ["src/services/*"],
-      "shared/*": ["src/shared/*"],
-      "env": ["src/env.ts"],
-      "logger": ["src/logger.ts"],
-      "models": ["src/models.ts"],
-      "progress-handler": ["src/progress-handler.ts"]
-    },
+    "baseUrl": "./src",
 
     // Best practices
     "strict": true,

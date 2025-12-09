@@ -1,6 +1,6 @@
+import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import type { Tool } from "shared/types";
 
 export const renameDriveFileTool: Tool = {
   definition: {

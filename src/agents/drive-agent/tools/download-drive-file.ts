@@ -1,10 +1,10 @@
 import type { Readable } from "node:stream";
+import type { Tool } from "agents/agent";
 import type { Context } from "grammy";
 import { InputFile } from "grammy";
 import { logger } from "logger";
-import { createProgressHandler } from "progress-handler";
 import { getDriveClient } from "services/google-drive/google-drive";
-import type { Tool } from "shared/types";
+import { createProgressHandler } from "utils/progress-handler";
 
 export const downloadDriveFileTool: Tool = {
   definition: {

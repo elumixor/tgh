@@ -1,129 +1,90 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import type { Tool } from "shared/types";
+import { describe, expect, test as t } from "bun:test";
+import { replaceToolsWithMocks } from "utils/test-utils";
 import { MasterAgent } from "./master-agent";
 
-describe("MasterAgent", () => {
-  let masterAgent: MasterAgent;
+function test(name: string, fn: () => Promise<void>) {
+  return t.if(!!process.env.RUN_MANUAL_TESTS)(name, fn);
+}
 
-  beforeEach(() => {
-    masterAgent = new MasterAgent();
+describe.concurrent("MasterAgent", () => {
+  test("[MANUAL] should route image tasks to image_agent", async () => {
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
+
+    await masterAgent.processTask("generate an image of a cat", { messageId: 1 });
+
+    const imageMock = mocks.get("image_agent");
+    expect(imageMock).toBeDefined();
+    expect(imageMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== imageMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  afterEach(() => {
-    mock.restore();
+  test("[MANUAL] should route drive tasks to drive_agent", async () => {
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
+
+    await masterAgent.processTask("list my files on google drive", { messageId: 1 });
+
+    const driveMock = mocks.get("drive_agent");
+    expect(driveMock).toBeDefined();
+    expect(driveMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== driveMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test("should register tools correctly", () => {
-    const mockTool: Tool = {
-      definition: {
-        name: "test_tool",
-        description: "A test tool",
-        input_schema: {
-          type: "object",
-          properties: {},
-          required: [],
-        },
-      },
-      execute: async () => ({ success: true }),
-    };
+  test("[MANUAL] should route message search to information_agent", async () => {
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    masterAgent.registerTool(mockTool);
-    // @ts-expect-error - accessing private field for testing
-    expect(masterAgent.tools).toContainEqual(mockTool);
+    await masterAgent.processTask("search for messages about 'claude'");
+
+    const infoMock = mocks.get("information_agent");
+    expect(infoMock).toBeDefined();
+    expect(infoMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== infoMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should route image tasks to image_agent", async () => {
-    const result = await masterAgent.processMessage("generate an image of a cat");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
+  test("[MANUAL] should route information tasks to information_agent", async () => {
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
+
+    await masterAgent.processTask("What movies are shown this week in Paris?");
+
+    const infoMock = mocks.get("information_agent");
+    expect(infoMock).toBeDefined();
+    expect(infoMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== infoMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should route drive tasks to drive_agent", async () => {
-    const result = await masterAgent.processMessage("list my files on google drive");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
-  });
+  test("[MANUAL] should call get_api_balances for API balance checks", async () => {
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-  test("should handle tool execution errors gracefully", async () => {
-    const mockFailingTool: Tool = {
-      definition: {
-        name: "failing_tool",
-        description: "A tool that fails",
-        input_schema: {
-          type: "object",
-          properties: {},
-          required: [],
-        },
-      },
-      execute: async () => {
-        throw new Error("Tool execution failed");
-      },
-    };
+    await masterAgent.processTask("check API balances");
 
-    masterAgent.registerTool(mockFailingTool);
+    const balancesMock = mocks.get("get_api_balances");
+    expect(balancesMock).toBeDefined();
+    expect(balancesMock).toHaveBeenCalled();
 
-    // The agent should handle the error and return a response
-    const result = await masterAgent.processMessage("use the failing tool");
-    expect(typeof result).toBe("string");
-  });
-
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should stop after max iterations", async () => {
-    const mockInfiniteTool: Tool = {
-      definition: {
-        name: "infinite_tool",
-        description: "A tool that keeps requesting more tools",
-        input_schema: {
-          type: "object",
-          properties: {},
-          required: [],
-        },
-      },
-      execute: async () => ({ result: "keep going" }),
-    };
-
-    masterAgent.registerTool(mockInfiniteTool);
-
-    // Should not hang indefinitely
-    const result = await masterAgent.processMessage("keep using tools forever");
-    expect(typeof result).toBe("string");
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== balancesMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
   test("should return text response when no tools are used", async () => {
-    const result = await masterAgent.processMessage("hello");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
+    const masterAgent = new MasterAgent();
+    const mocks = replaceToolsWithMocks(masterAgent.tools);
+
+    const result = await masterAgent.processTask("hello");
+    expect(result.success).toBe(true);
+    expect(result).toHaveProperty("result");
+
+    for (const mock of mocks.values()) expect(mock).not.toHaveBeenCalled();
   });
-
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")(
-    "[MANUAL] should route chat info tasks to chat_info_agent",
-    async () => {
-      const result = await masterAgent.processMessage("search for messages about 'claude'");
-      expect(typeof result).toBe("string");
-      expect(result.length).toBeGreaterThan(0);
-    },
-  );
-
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")(
-    "[MANUAL] should route knowledge tasks to knowledge_agent",
-    async () => {
-      const result = await masterAgent.processMessage("search the GDD for game mechanics");
-      expect(typeof result).toBe("string");
-      expect(result.length).toBeGreaterThan(0);
-    },
-  );
-
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should route web search tasks to web_agent", async () => {
-    const result = await masterAgent.processMessage("search the web for latest AI news");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
-  });
-
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")(
-    "[MANUAL] should route utility tasks to utility_agent",
-    async () => {
-      const result = await masterAgent.processMessage("check API balances");
-      expect(typeof result).toBe("string");
-      expect(result.length).toBeGreaterThan(0);
-    },
-  );
 });

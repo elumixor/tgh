@@ -48,7 +48,7 @@ export class EmbeddingsService {
       magnitudeB += bVal * bVal;
     }
 
-    const magnitude = Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB);
+    const magnitude = Math.sqrt(magnitudeA * magnitudeB);
     if (magnitude === 0) return 0;
 
     return dotProduct / magnitude;

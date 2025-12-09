@@ -1,8 +1,8 @@
+import type { Tool } from "agents/agent";
 import type { Context } from "grammy";
 import { logger } from "logger";
-import { createProgressHandler } from "progress-handler";
 import { meshyClient } from "services/meshy/meshy";
-import type { Tool } from "shared/types";
+import { createProgressHandler } from "utils/progress-handler";
 
 export const generate3DFromImageTool: Tool = {
   definition: {

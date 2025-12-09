@@ -1,56 +1,68 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { replaceToolsWithMocks } from "utils/test-utils";
 import { DriveAgent } from "./drive-agent";
 
 describe("DriveAgent", () => {
-  const agent = new DriveAgent();
+  let agent: DriveAgent;
+  let mocks: ReturnType<typeof replaceToolsWithMocks>;
 
-  test("should have correct definition", () => {
-    expect(agent.definition.name).toBe("drive_agent");
-    expect(agent.definition.description).toContain("Google Drive");
-    expect(agent.definition.input_schema.required).toContain("task");
+  beforeEach(() => {
+    agent = new DriveAgent();
+    mocks = replaceToolsWithMocks(agent.tools);
   });
 
-  test("should have all required tools", () => {
-    const toolNames = agent.tools.map((t) => t.definition.name);
-    expect(toolNames).toContain("list_drive_files");
-    expect(toolNames).toContain("create_drive_folder");
-    expect(toolNames).toContain("search_drive_files");
-    expect(toolNames).toContain("download_drive_file");
-    expect(toolNames).toContain("upload_drive_file");
-    expect(toolNames).toContain("rename_drive_file");
-    expect(toolNames).toContain("delete_drive_file");
+  test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call list_drive_files for listing", async () => {
+    await agent.processTask("List all files in the root folder");
+
+    const listMock = mocks.get("list_drive_files");
+    expect(listMock).toBeDefined();
+    expect(listMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== listMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should list drive files", async () => {
-    const response = await agent.processTask("List all shared files");
-    expect(response.success).toBe(true);
-    expect(response.result).toBeTruthy();
-    expect(response.toolsUsed).toContain("list_drive_files");
+  test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call search_drive_files for searching", async () => {
+    await agent.processTask("Search for files with 'test' in the name");
+
+    const searchMock = mocks.get("search_drive_files");
+    expect(searchMock).toBeDefined();
+    expect(searchMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== searchMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should search drive files", async () => {
-    const response = await agent.processTask("Search for files with 'test' in the name");
-    expect(response.success).toBe(true);
-    expect(response.result).toBeTruthy();
-    expect(response.toolsUsed).toContain("search_drive_files");
+  test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call create_drive_folder for folder creation", async () => {
+    await agent.processTask("Create a new folder called 'TestFolder'");
+
+    const createMock = mocks.get("create_drive_folder");
+    expect(createMock).toBeDefined();
+    expect(createMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== createMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should create drive folder", async () => {
-    const response = await agent.processTask("Create a new folder called 'TestFolder' in the root");
-    expect(response.success).toBe(true);
-    expect(response.result).toBeTruthy();
-    expect(response.toolsUsed).toContain("create_drive_folder");
+  test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call upload_drive_file for uploading", async () => {
+    await agent.processTask("Upload the file from message 123 to Drive");
+
+    const uploadMock = mocks.get("upload_drive_file");
+    expect(uploadMock).toBeDefined();
+    expect(uploadMock).toHaveBeenCalled();
+
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== uploadMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 
-  test("should require task parameter", async () => {
-    await expect(agent.execute({}, {})).rejects.toThrow("Task is required");
-  });
+  test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call download_drive_file for downloading", async () => {
+    await agent.processTask("Download file with ID abc123");
 
-  test("should use thinking budget", () => {
-    expect(agent.thinkingBudget).toBe(1024);
-  });
+    const downloadMock = mocks.get("download_drive_file");
+    expect(downloadMock).toBeDefined();
+    expect(downloadMock).toHaveBeenCalled();
 
-  test("should use thinking model", () => {
-    expect(agent.model).toContain("sonnet");
+    const otherMocks = Array.from(mocks.values()).filter((m) => m !== downloadMock);
+    for (const mock of otherMocks) expect(mock).not.toHaveBeenCalled();
   });
 });

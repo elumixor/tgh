@@ -1,6 +1,6 @@
+import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { type DriveFile, formatDriveFile, getDriveClient } from "services/google-drive/google-drive";
-import type { Tool } from "shared/types";
 
 export const listDriveFilesTool: Tool = {
   definition: {

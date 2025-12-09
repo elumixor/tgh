@@ -1,5 +1,5 @@
+import { Agent } from "agents/agent";
 import { models } from "models";
-import { Agent } from "shared/agent";
 import { createDriveFolderTool } from "./tools/create-drive-folder";
 import { deleteDriveFileTool } from "./tools/delete-drive-file";
 import { downloadDriveFileTool } from "./tools/download-drive-file";

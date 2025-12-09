@@ -1,63 +1,27 @@
-import { ChatInfoAgent } from "agents/chat-info-agent/chat-info-agent";
-import { DriveAgent } from "agents/drive-agent/drive-agent";
-import { ImageAgent } from "agents/image-agent/image-agent";
-import { KnowledgeAgent } from "agents/knowledge-agent/knowledge-agent";
 import { MasterAgent } from "agents/master-agent/master-agent";
-import { UtilityAgent } from "agents/utility-agent/utility-agent";
-import { WebAgent } from "agents/web-agent/web-agent";
 import { env } from "env";
 import { Bot } from "grammy";
-import type { Document, PhotoSize } from "grammy/types";
 import { logger } from "logger";
 import { replyWithLongMessage } from "services/telegram";
-import { isBotMentioned, isImageDocument } from "shared/utils";
-
-const formatError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
-
-async function getPhotoUrl(fileId: string, bot: Bot): Promise<string> {
-  const fileLink = await bot.api.getFile(fileId);
-  return `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-}
+import { formatError, isBotMentioned, isImageDocument } from "utils";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
   private botUsername = "";
-  private botUserId = 0;
   private masterAgent = new MasterAgent();
 
   constructor() {
-    this.initializeMasterAgent();
-    this.initializeBot();
-    this.setupMessageHandler();
-  }
-
-  private initializeMasterAgent(): void {
-    // Register specialized agents only - they handle their own tools
-    this.masterAgent.registerTool(new ImageAgent());
-    this.masterAgent.registerTool(new ChatInfoAgent());
-    this.masterAgent.registerTool(new KnowledgeAgent());
-    this.masterAgent.registerTool(new WebAgent());
-    this.masterAgent.registerTool(new UtilityAgent());
-    this.masterAgent.registerTool(new DriveAgent());
-
-    logger.info("Master agent initialized with specialized agents");
-  }
-
-  private initializeBot(): void {
     this.bot.api.getMe().then((me) => {
       this.botUsername = me.username ?? "";
-      this.botUserId = me.id;
       logger.info({ username: me.username, userId: me.id }, "Bot initialized");
     });
-  }
 
-  private setupMessageHandler(): void {
     this.bot.on("message", async (ctx) => {
       const isGroupChat = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
 
       if (isGroupChat) {
         if (ctx.chat?.id !== env.ALLOWED_CHAT_ID) return;
-        if (!isBotMentioned(ctx.message, this.botUsername, this.botUserId)) return;
+        if (!isBotMentioned(ctx.message, this.botUsername)) return;
         logger.info({ username: ctx.from?.username, userId: ctx.from?.id }, "Received mention in group");
       } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
 
@@ -78,64 +42,30 @@ export class App {
           "Processing incoming message",
         );
 
-        let userMessage = ctx.message.text || ctx.message.caption || "";
-        const imageUrls: string[] = [];
-
-        if (ctx.message.photo) {
-          const url = await this.extractPhotoUrl(ctx.message.photo, this.bot);
-          if (url) imageUrls.push(url);
-        } else if (ctx.message.document && isImageDocument(ctx.message.document)) {
-          const url = await this.extractDocumentUrl(ctx.message.document, this.bot);
-          if (url) imageUrls.push(url);
-        }
-
-        if (ctx.message.reply_to_message) {
-          const replyId = ctx.message.reply_to_message.message_id;
-          const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption;
-
-          userMessage = `${userMessage}\n\nContext: Replying to message ${replyId}`;
-          if (replyText) userMessage += `: "${replyText}"`;
-
-          if (ctx.message.reply_to_message.photo) {
-            const url = await this.extractPhotoUrl(ctx.message.reply_to_message.photo, this.bot);
-            if (url) imageUrls.push(url);
-          } else if (ctx.message.reply_to_message.document && isImageDocument(ctx.message.reply_to_message.document)) {
-            const url = await this.extractDocumentUrl(ctx.message.reply_to_message.document, this.bot);
-            if (url) imageUrls.push(url);
-          }
-        }
-
-        if (imageUrls.length > 0) {
-          userMessage = userMessage
-            ? `${userMessage}\n\nImage URLs: ${JSON.stringify(imageUrls)}`
-            : `I've received ${imageUrls.length} image(s): ${JSON.stringify(imageUrls)}`;
-        }
+        const userMessage = ctx.message.text || ctx.message.caption || "";
 
         if (!userMessage) return;
 
-        const response = await this.masterAgent.processMessage(userMessage, ctx);
+        const result = await this.masterAgent.processTask(userMessage, {
+          telegramCtx: ctx,
+          messageId: ctx.message.message_id,
+        });
 
-        if (response) {
+        if (!result.success) throw new Error(result.error ?? "Master agent task failed");
+
+        logger.info("Master agent completed");
+
+        if (result.result) {
           const replyOptions: { reply_parameters: { message_id: number }; message_thread_id?: number } = {
             reply_parameters: { message_id: ctx.message.message_id },
           };
           if (ctx.message.message_thread_id) replyOptions.message_thread_id = ctx.message.message_thread_id;
-          await replyWithLongMessage(ctx, response, replyOptions);
+          await replyWithLongMessage(ctx, result.result, replyOptions);
         }
       } catch (error) {
         logger.error({ error: formatError(error) }, "Error processing message");
         await ctx.reply("Sorry, I encountered an error processing your request.");
       }
     });
-  }
-
-  private async extractPhotoUrl(photos: PhotoSize[], bot: Bot): Promise<string | undefined> {
-    const photo = photos.at(-1);
-    if (!photo) return undefined;
-    return getPhotoUrl(photo.file_id, bot);
-  }
-
-  private async extractDocumentUrl(document: Document, bot: Bot): Promise<string | undefined> {
-    return getPhotoUrl(document.file_id, bot);
   }
 }

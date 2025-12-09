@@ -1,5 +1,17 @@
 {
   "version": "0.2",
   "language": "en",
-  "words": ["genai", "GRAMJS", "gramjs", "grammy", "meshy", "polycount", "remesh", "remeshed", "usdz"]
+  "words": [
+    "genai",
+    "gramjs",
+    "GRAMJS",
+    "grammy",
+    "meshy",
+    "notionhq",
+    "polycount",
+    "remesh",
+    "remeshed",
+    "supergroup",
+    "usdz"
+  ]
 }

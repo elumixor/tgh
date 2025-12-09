@@ -1,6 +1,6 @@
 import type { Api, Context } from "grammy";
 import { logger } from "logger";
-import { markdownToTelegramHtml } from "shared/utils";
+import { markdownToTelegramHtml } from "utils";
 import { splitMessage } from "./telegram-message-splitter";
 
 interface SendOptions {

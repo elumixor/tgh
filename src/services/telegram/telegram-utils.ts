@@ -1,6 +1,6 @@
 import type { Api, Context } from "grammy";
 import { logger } from "logger";
-import { markdownToTelegramHtml } from "shared/utils";
+import { markdownToTelegramHtml } from "utils";
 import { sendLongMessage } from "./telegram-message-sender";
 
 export async function safeEditMessageText(

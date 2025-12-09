@@ -1,6 +1,6 @@
+import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { geminiClient } from "services/gemini/gemini";
-import type { Tool } from "shared/types";
 
 export const analyzeImageTool: Tool = {
   definition: {
