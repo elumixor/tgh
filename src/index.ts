@@ -33,7 +33,9 @@ if (env.BOT_MODE === "webhook") {
   await app.bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
   logger.info({ webhookUrl: `${env.WEBHOOK_URL}/webhook` }, "Webhook configured");
 
-  const handleWebhook = webhookCallback(app.bot, "std/http");
+  const handleWebhook = webhookCallback(app.bot, "std/http", {
+    timeoutMilliseconds: 60_000, // 60 seconds to accommodate long-running agent tasks
+  });
 
   Bun.serve({
     port: env.PORT,
