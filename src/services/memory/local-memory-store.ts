@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { logger } from "logger";
@@ -5,6 +6,10 @@ import type { DocumentWithEmbedding } from "services/openai/embeddings";
 import { embeddingsService } from "services/openai/embeddings";
 
 const CACHE_FILE = "./cache/memories.json";
+const EMBEDDINGS_FILE = "./cache/embeddings.bin";
+const EMBEDDING_DIM = 1536;
+const ID_SIZE = 64; // Max bytes for memory ID (null-padded)
+const ENTRY_SIZE = ID_SIZE + EMBEDDING_DIM * 4; // ID + float32 array
 
 export interface LocalMemory {
   id: string;
@@ -12,12 +17,27 @@ export interface LocalMemory {
   embedding: number[];
   createdAt: string;
   updatedAt: string;
-  notionId?: string; // For sync with Notion
+  notionId?: string;
+  syncStatus?: "synced" | "pending" | "conflict";
+}
+
+// Metadata stored in JSON (without embeddings)
+interface LocalMemoryMeta {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  notionId?: string;
   syncStatus?: "synced" | "pending" | "conflict";
 }
 
 interface MemoryCache {
   memories: LocalMemory[];
+  lastSync: string;
+}
+
+interface MetadataFile {
+  memories: LocalMemoryMeta[];
   lastSync: string;
 }
 
@@ -49,16 +69,86 @@ function releaseLock(): void {
 }
 
 /**
- * Load memories from local file
+ * Load embeddings from binary file
+ */
+function loadEmbeddings(): Map<string, number[]> {
+  const embeddings = new Map<string, number[]>();
+
+  if (!existsSync(EMBEDDINGS_FILE)) return embeddings;
+
+  try {
+    const buffer = readFileSync(EMBEDDINGS_FILE);
+    const count = Math.floor(buffer.length / ENTRY_SIZE);
+
+    for (let i = 0; i < count; i++) {
+      const offset = i * ENTRY_SIZE;
+      // Read ID (null-terminated string)
+      const idBuffer = buffer.subarray(offset, offset + ID_SIZE);
+      const nullIndex = idBuffer.indexOf(0);
+      const id = idBuffer.subarray(0, nullIndex === -1 ? ID_SIZE : nullIndex).toString("utf-8");
+
+      // Read embedding as Float32Array
+      const embeddingBuffer = buffer.subarray(offset + ID_SIZE, offset + ENTRY_SIZE);
+      const embedding = Array.from(new Float32Array(embeddingBuffer.buffer, embeddingBuffer.byteOffset, EMBEDDING_DIM));
+
+      embeddings.set(id, embedding);
+    }
+  } catch (error) {
+    logger.warn({ error }, "Failed to load embeddings from binary file");
+  }
+
+  return embeddings;
+}
+
+/**
+ * Save embeddings to binary file
+ */
+function saveEmbeddings(memories: LocalMemory[]): void {
+  try {
+    mkdirSync(dirname(EMBEDDINGS_FILE), { recursive: true });
+
+    const buffer = Buffer.alloc(memories.length * ENTRY_SIZE);
+
+    for (let i = 0; i < memories.length; i++) {
+      const memory = memories[i];
+      if (!memory) continue;
+
+      const offset = i * ENTRY_SIZE;
+
+      // Write ID (null-padded)
+      const idBuffer = Buffer.alloc(ID_SIZE, 0);
+      idBuffer.write(memory.id, 0, "utf-8");
+      idBuffer.copy(buffer, offset);
+
+      // Write embedding as Float32Array
+      const floatArray = new Float32Array(memory.embedding);
+      const embeddingBuffer = Buffer.from(floatArray.buffer);
+      embeddingBuffer.copy(buffer, offset + ID_SIZE);
+    }
+
+    writeFileSync(EMBEDDINGS_FILE, buffer);
+  } catch (error) {
+    logger.error({ error }, "Failed to save embeddings to binary file");
+  }
+}
+
+/**
+ * Load memories from local files (metadata JSON + binary embeddings)
  */
 function loadFromFile(): MemoryCache {
   try {
-    if (!existsSync(CACHE_FILE)) {
-      return { memories: [], lastSync: new Date().toISOString() };
-    }
+    if (!existsSync(CACHE_FILE)) return { memories: [], lastSync: new Date().toISOString() };
 
     const data = readFileSync(CACHE_FILE, "utf-8");
-    return JSON.parse(data) as MemoryCache;
+    const metadata = JSON.parse(data) as MetadataFile;
+    const embeddings = loadEmbeddings();
+
+    const memories: LocalMemory[] = metadata.memories.map((meta) => ({
+      ...meta,
+      embedding: embeddings.get(meta.id) ?? [],
+    }));
+
+    return { memories, lastSync: metadata.lastSync };
   } catch (error) {
     logger.warn({ error }, "Failed to load memories from file, starting fresh");
     return { memories: [], lastSync: new Date().toISOString() };
@@ -66,12 +156,21 @@ function loadFromFile(): MemoryCache {
 }
 
 /**
- * Save memories to local file
+ * Save memories to local files (metadata JSON + binary embeddings)
  */
 function saveToFile(cache: MemoryCache): void {
   try {
     mkdirSync(dirname(CACHE_FILE), { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
+
+    // Save metadata (without embeddings)
+    const metadata: MetadataFile = {
+      memories: cache.memories.map(({ embedding: _, ...meta }) => meta),
+      lastSync: cache.lastSync,
+    };
+    writeFileSync(CACHE_FILE, JSON.stringify(metadata, null, 2));
+
+    // Save embeddings to binary file
+    saveEmbeddings(cache.memories);
   } catch (error) {
     logger.error({ error }, "Failed to save memories to file");
   }
@@ -301,13 +400,14 @@ export async function syncWithNotion(): Promise<void> {
         .map((m) => [m.notionId, m]),
     );
 
-    // Import Notion memories that don't exist locally
+    // Import Notion memories that don't exist locally (generate embeddings locally)
     for (const notionMemory of notionMemories) {
       if (!localByNotionId.has(notionMemory.id)) {
+        const embedding = await embeddingsService.createEmbedding(notionMemory.content);
         localCache.memories.push({
           id: generateId(),
           content: notionMemory.content,
-          embedding: notionMemory.embedding,
+          embedding,
           createdAt: notionMemory.timestamp,
           updatedAt: notionMemory.timestamp,
           notionId: notionMemory.id,
@@ -328,9 +428,23 @@ export async function syncWithNotion(): Promise<void> {
 
       if (notionTime > localTime) {
         localMemory.content = notionMemory.content;
-        localMemory.embedding = notionMemory.embedding;
+        localMemory.embedding = await embeddingsService.createEmbedding(notionMemory.content);
         localMemory.updatedAt = notionMemory.timestamp;
         localMemory.syncStatus = "synced";
+      }
+    }
+
+    // Push pending local memories to Notion
+    for (const localMemory of localCache.memories) {
+      if (localMemory.syncStatus === "pending" && !localMemory.notionId) {
+        try {
+          const notionId = await memoryStore.addMemory(localMemory.content);
+          localMemory.notionId = notionId;
+          localMemory.syncStatus = "synced";
+          logger.debug({ memoryId: localMemory.id, notionId }, "Pushed pending memory to Notion");
+        } catch (error) {
+          logger.warn({ memoryId: localMemory.id, error }, "Failed to push memory to Notion");
+        }
       }
     }
 

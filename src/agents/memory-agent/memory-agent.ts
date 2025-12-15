@@ -1,6 +1,7 @@
 import { Agent } from "agents/agent";
 import { models } from "models";
 import { addMemoryLocalTool } from "./tools/add-memory";
+import { deleteMemoryLocalTool } from "./tools/delete-memory";
 import { getMemoryLocalTool } from "./tools/get-memory";
 import { searchMemoriesLocalTool } from "./tools/search-memories";
 import { updateMemoryLocalTool } from "./tools/update-memory";
@@ -12,6 +13,7 @@ ACTION RULES:
 - Recall: use search_memories to find relevant past memories
 - Update: use update_memory to modify existing memories
 - Retrieve: use get_memory for specific memory by ID
+- Delete: use delete_memory to remove a memory (search first to get the ID)
 
 Memories persist across sessions and are searchable by meaning.`;
 
@@ -37,7 +39,7 @@ export class MemoryAgent extends Agent {
       "memory_agent",
       models.fast,
       MEMORY_AGENT_PROMPT,
-      [searchMemoriesLocalTool, addMemoryLocalTool, getMemoryLocalTool, updateMemoryLocalTool],
+      [searchMemoriesLocalTool, addMemoryLocalTool, getMemoryLocalTool, updateMemoryLocalTool, deleteMemoryLocalTool],
       2048,
     );
   }

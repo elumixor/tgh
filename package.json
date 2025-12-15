@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "cli": "bun run src/cli.ts",
+    "view-memories": "bun run src/view-memories.ts",
     "login": "bun run scripts/login.ts",
     "test": "bun test",
     "test:manual": "RUN_MANUAL_TESTS=1 bun test",

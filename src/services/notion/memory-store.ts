@@ -2,13 +2,10 @@ import { Client } from "@notionhq/client";
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { env } from "env";
 import { logger } from "logger";
-import type { DocumentWithEmbedding } from "services/openai/embeddings";
-import { embeddingsService } from "services/openai/embeddings";
 
 export interface Memory {
   id: string;
   content: string;
-  embedding: number[];
   timestamp: string;
   url: string;
   similarity?: number;
@@ -57,13 +54,11 @@ export class MemoryStore {
 
         const page = result as PageObjectResponse;
         const content = this.extractContent(page);
-        const embedding = this.extractEmbedding(page);
 
-        if (content && embedding) {
+        if (content) {
           memories.push({
             id: page.id,
             content,
-            embedding,
             timestamp: page.created_time,
             url: page.url,
           });
@@ -81,7 +76,7 @@ export class MemoryStore {
   }
 
   async searchMemories(query: string, topK = 5): Promise<Memory[]> {
-    logger.debug({ query, topK }, "Searching memories");
+    logger.debug({ query, topK }, "Searching memories in Notion (text-based)");
 
     await this.ensureFreshCache();
 
@@ -90,41 +85,24 @@ export class MemoryStore {
       return [];
     }
 
-    const queryEmbedding = await embeddingsService.createEmbedding(query);
-
-    const documents: DocumentWithEmbedding[] = this.memoryCache.map((m) => ({
-      id: m.id,
-      content: m.content,
-      embedding: m.embedding,
-    }));
-
-    const results = embeddingsService.findMostSimilar(queryEmbedding, documents, topK);
-
-    return results
-      .map((result) => {
-        const memory = this.memoryCache?.find((m) => m.id === result.id);
-        if (!memory) return null;
-        return { ...memory, similarity: result.similarity } as Memory;
-      })
-      .filter((m): m is Memory & { similarity: number } => m !== null);
+    // Simple text-based search (Notion sync is backup, local store has embeddings)
+    const queryLower = query.toLowerCase();
+    return this.memoryCache.filter((m) => m.content.toLowerCase().includes(queryLower)).slice(0, topK);
   }
 
   async addMemory(content: string): Promise<string> {
-    logger.debug({ contentLength: content.length }, "Adding memory");
+    logger.debug({ contentLength: content.length }, "Adding memory to Notion");
 
-    const embedding = await embeddingsService.createEmbedding(content);
-    const pageId = await this.createNotionMemory(content, embedding);
+    const pageId = await this.createNotionMemory(content);
 
     this.memoryCache = null;
 
-    logger.info({ pageId }, "Memory added");
+    logger.info({ pageId }, "Memory added to Notion");
     return pageId;
   }
 
   async updateMemory(pageId: string, newContent: string): Promise<void> {
-    logger.debug({ pageId, contentLength: newContent.length }, "Updating memory");
-
-    const embedding = await embeddingsService.createEmbedding(newContent);
+    logger.debug({ pageId, contentLength: newContent.length }, "Updating memory in Notion");
 
     await this.client.pages.update({
       page_id: pageId,
@@ -135,41 +113,39 @@ export class MemoryStore {
         Content: {
           rich_text: [{ text: { content: newContent } }],
         },
-        Embedding: {
-          rich_text: [{ text: { content: this.embeddingToProperty(embedding) } }],
-        },
       },
     });
 
     this.memoryCache = null;
 
-    logger.info({ pageId }, "Memory updated");
+    logger.info({ pageId }, "Memory updated in Notion");
   }
 
   async getMemory(pageId: string): Promise<Memory | null> {
-    logger.debug({ pageId }, "Getting memory");
+    logger.debug({ pageId }, "Getting memory from Notion");
 
     try {
       const page = (await this.client.pages.retrieve({ page_id: pageId })) as PageObjectResponse;
       const content = this.extractContent(page);
-      const embedding = this.extractEmbedding(page);
 
-      if (!content || !embedding) return null;
+      if (!content) return null;
 
       return {
         id: page.id,
         content,
-        embedding,
         timestamp: page.created_time,
         url: page.url,
       };
     } catch (error) {
-      logger.error({ pageId, error: error instanceof Error ? error.message : error }, "Failed to get memory");
+      logger.error(
+        { pageId, error: error instanceof Error ? error.message : error },
+        "Failed to get memory from Notion",
+      );
       return null;
     }
   }
 
-  private async createNotionMemory(content: string, embedding: number[]): Promise<string> {
+  private async createNotionMemory(content: string): Promise<string> {
     const title = content.substring(0, 50);
 
     const response = await this.client.pages.create({
@@ -181,42 +157,16 @@ export class MemoryStore {
         Content: {
           rich_text: [{ text: { content } }],
         },
-        Embedding: {
-          rich_text: [{ text: { content: this.embeddingToProperty(embedding) } }],
-        },
       },
     });
 
     return response.id;
   }
 
-  private embeddingToProperty(embedding: number[]): string {
-    return JSON.stringify(embedding);
-  }
-
-  private propertyToEmbedding(property: string): number[] | null {
-    try {
-      const parsed = JSON.parse(property) as number[];
-      if (Array.isArray(parsed)) return parsed;
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
   private extractContent(page: PageObjectResponse): string | null {
     const contentProp = page.properties.Content;
     if (contentProp?.type === "rich_text" && contentProp.rich_text.length > 0) {
       return contentProp.rich_text.map((text) => text.plain_text).join("");
-    }
-    return null;
-  }
-
-  private extractEmbedding(page: PageObjectResponse): number[] | null {
-    const embeddingProp = page.properties.Embedding;
-    if (embeddingProp?.type === "rich_text" && embeddingProp.rich_text.length > 0) {
-      const embeddingStr = embeddingProp.rich_text.map((text) => text.plain_text).join("");
-      return this.propertyToEmbedding(embeddingStr);
     }
     return null;
   }
