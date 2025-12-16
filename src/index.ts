@@ -1,6 +1,7 @@
 import { env } from "env";
 import { webhookCallback } from "grammy";
 import { logger } from "logger";
+import { syncWithNotion } from "services/memory/memory-store";
 import { gramjsClient } from "services/telegram";
 import { App } from "./app";
 
@@ -11,6 +12,11 @@ try {
   logger.error({ error: error instanceof Error ? error.message : error }, "Failed to initialize GramJS");
   process.exit(1);
 }
+
+// Sync memories with Notion
+syncWithNotion().catch((error) => {
+  logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to sync memories with Notion");
+});
 
 const app = new App();
 

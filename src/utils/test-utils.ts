@@ -1,7 +1,8 @@
 import { spyOn } from "bun:test";
 import { Anthropic } from "@anthropic-ai/sdk";
-import type { Tool } from "agents/agent";
+import type { Tool, ToolContext } from "agents/agent";
 import { env } from "env";
+import type { BlockHandle, MessageHandle } from "io";
 import { models } from "models";
 
 /**
@@ -68,4 +69,30 @@ export function replaceToolsWithMocks(tools: Tool[]) {
       }),
     ]),
   );
+}
+
+/** Creates a mock MessageHandle for testing */
+export function createMockMessageHandle(): MessageHandle {
+  const mockBlockHandle: BlockHandle = {
+    state: "in_progress",
+    content: { type: "text", text: "" },
+    addChild: () => mockBlockHandle,
+  };
+
+  return {
+    append: () => {},
+    addPhoto: () => {},
+    addFile: () => {},
+    replaceWith: () => {},
+    clear: () => {},
+    createBlock: () => mockBlockHandle,
+  };
+}
+
+/** Creates a mock ToolContext for testing */
+export function createMockContext(overrides?: Partial<ToolContext>): ToolContext {
+  return {
+    statusMessage: createMockMessageHandle(),
+    ...overrides,
+  };
 }

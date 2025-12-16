@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createMockContext } from "utils/test-utils";
 import { analyzeImageTool } from "./analyze-image";
 
 const TEST_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg";
@@ -15,7 +16,7 @@ describe("analyze_image tool", () => {
 
   test.skipIf(!runManual)("[MANUAL] should analyze an image", async () => {
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
-    const result = await analyzeImageTool.execute({ imageUrl: TEST_IMAGE_URL });
+    const result = await analyzeImageTool.execute({ imageUrl: TEST_IMAGE_URL }, createMockContext());
     expect(result).toHaveProperty("analysis");
     expect(typeof (result as { analysis: string }).analysis).toBe("string");
     expect((result as { analysis: string }).analysis.length).toBeGreaterThan(0);
@@ -23,10 +24,10 @@ describe("analyze_image tool", () => {
 
   test.skipIf(!runManual)("[MANUAL] should analyze an image with custom prompt", async () => {
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
-    const result = await analyzeImageTool.execute({
-      imageUrl: TEST_IMAGE_URL,
-      prompt: "What animal is in this image?",
-    });
+    const result = await analyzeImageTool.execute(
+      { imageUrl: TEST_IMAGE_URL, prompt: "What animal is in this image?" },
+      createMockContext(),
+    );
     expect(result).toHaveProperty("analysis");
     const analysis = (result as { analysis: string }).analysis.toLowerCase();
     expect(analysis).toContain("cat");

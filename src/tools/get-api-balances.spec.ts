@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createMockContext } from "utils/test-utils";
 import { getAPIBalancesTool } from "./get-api-balances";
 
 describe("get-api-balances", () => {
@@ -8,7 +9,7 @@ describe("get-api-balances", () => {
   });
 
   it("should return proper structure", async () => {
-    const result = await getAPIBalancesTool.execute({});
+    const result = await getAPIBalancesTool.execute({}, createMockContext());
     expect(result).toHaveProperty("balances");
     expect(result).toHaveProperty("summary");
 
@@ -19,7 +20,7 @@ describe("get-api-balances", () => {
   });
 
   it("should include all service names", async () => {
-    const result = (await getAPIBalancesTool.execute({})) as {
+    const result = (await getAPIBalancesTool.execute({}, createMockContext())) as {
       balances: Array<{ service: string; status: string }>;
     };
     const serviceNames = result.balances.map((b) => b.service);
@@ -32,7 +33,7 @@ describe("get-api-balances", () => {
   });
 
   it("should have status for each service", async () => {
-    const result = (await getAPIBalancesTool.execute({})) as {
+    const result = (await getAPIBalancesTool.execute({}, createMockContext())) as {
       balances: Array<{ service: string; status: "success" | "error" }>;
     };
 
@@ -44,7 +45,7 @@ describe("get-api-balances", () => {
 
 describe.skipIf(!process.env.RUN_MANUAL_TESTS)("get-api-balances (manual)", () => {
   it("should fetch real API balances and show details", async () => {
-    const result = (await getAPIBalancesTool.execute({})) as {
+    const result = (await getAPIBalancesTool.execute({}, createMockContext())) as {
       balances: Array<{
         service: string;
         status: string;

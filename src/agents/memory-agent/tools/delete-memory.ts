@@ -1,7 +1,7 @@
 import type { Tool } from "agents/agent";
-import { deleteMemory } from "services/memory/local-memory-store";
+import { deleteMemory } from "services/memory/memory-store";
 
-export const deleteMemoryLocalTool: Tool = {
+export const deleteMemoryTool: Tool = {
   definition: {
     name: "delete_memory",
     description: "Delete a memory by its ID. Use search_memories first to find the ID.",

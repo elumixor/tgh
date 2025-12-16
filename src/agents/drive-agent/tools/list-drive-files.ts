@@ -1,59 +1,59 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { getFilePath, getFolderPathById } from "services/google-drive/drive-folder-cache";
-import { type DriveFile, formatDriveFile, getDriveClient } from "services/google-drive/google-drive";
+import { buildTree, loadChildren } from "services/google-drive/drive-tree";
 
 export const listDriveFilesTool: Tool = {
   definition: {
     name: "list_drive_files",
     description:
-      "List files and folders in Google Drive. Returns detailed information about each file including ID, name, type, size, and timestamps. Use this to explore shared Drive folders or find files.",
+      "List files and folders in Google Drive. Returns detailed info including IDs, names, types, sizes. Use this to explore Drive folders or find files by browsing.",
     input_schema: {
       type: "object",
       properties: {
         folder_id: {
           type: "string",
-          description:
-            "The ID of the folder to list files from. If not provided, lists all top-level shared folders. You can get folder IDs from previous list_drive_files or search_drive_files calls.",
+          description: "Folder ID to list contents of. Omit to list shared root folders.",
         },
         page_size: {
           type: "number",
-          description: "Maximum number of files to return. Defaults to 100. Maximum is 1000.",
+          description: "Maximum files to return (default: 100, max: 1000)",
+        },
+        include_paths: {
+          type: "boolean",
+          description: "Include full paths (requires extra API calls). Default: false for listing.",
         },
       },
     },
   },
   execute: async (toolInput) => {
     const folderId = toolInput.folder_id as string | undefined;
-    const pageSize = Math.min((toolInput.page_size as number) || 100, 1000);
+    const pageSize = Math.min((toolInput.page_size as number) ?? 100, 1000);
+    const includePaths = (toolInput.include_paths as boolean) ?? false;
 
-    const query = folderId ? `'${folderId}' in parents and trashed = false` : "sharedWithMe = true and trashed = false";
+    logger.info({ folderId, pageSize }, "Listing Drive files");
 
-    logger.info({ folderId, pageSize, query }, "Listing Drive files");
+    let parentPath: string | undefined;
+    if (includePaths && folderId) {
+      // Build tree to get path info
+      const tree = await buildTree(undefined, { maxDepth: 4, includeFiles: false });
+      parentPath = tree.pathMap.get(folderId);
+    }
 
-    const drive = getDriveClient();
-    const response = await drive.files.list({
-      q: query,
-      pageSize,
-      fields: "files(id, name, mimeType, size, createdTime, modifiedTime, parents, webViewLink, iconLink)",
-      orderBy: "folder,name",
-    });
-
-    // Get parent folder path for constructing file paths
-    const parentPath = folderId ? await getFolderPathById(folderId) : null;
-
-    // Add full paths to files
-    const files: DriveFile[] = await Promise.all(
-      (response.data.files || []).map(async (file) => {
-        const path = parentPath ? `/${parentPath}/${file.name}` : await getFilePath(file.parents?.[0], file.name || "");
-        return formatDriveFile(file, path);
-      }),
-    );
+    const children = await loadChildren(folderId ?? null, { includeFiles: true });
+    const files = children.slice(0, pageSize).map((node) => ({
+      id: node.id,
+      name: node.name,
+      path: parentPath ? `/${parentPath}/${node.name}` : `/${node.name}`,
+      mimeType: node.mimeType,
+      size: node.size,
+      modifiedTime: node.modifiedTime,
+      isFolder: node.isFolder,
+    }));
 
     logger.info({ folderId, fileCount: files.length }, "Drive files listed");
 
     return {
-      folder_id: folderId || "shared",
+      folder_id: folderId ?? "shared_root",
       total_files: files.length,
       files,
     };

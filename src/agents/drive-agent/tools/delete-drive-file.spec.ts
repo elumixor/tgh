@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createMockContext } from "utils/test-utils";
 import { deleteDriveFileTool } from "./delete-drive-file";
 
 describe("deleteDriveFileTool", () => {
@@ -11,7 +12,7 @@ describe("deleteDriveFileTool", () => {
   test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should move file to trash successfully", async () => {
     // WARNING: This will move the file to trash!
     const testFileId = "YOUR_TEST_FILE_ID";
-    const result = await deleteDriveFileTool.execute({ file_id: testFileId });
+    const result = await deleteDriveFileTool.execute({ file_id: testFileId }, createMockContext());
     expect(result).toHaveProperty("success");
   });
 

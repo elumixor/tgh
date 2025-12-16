@@ -43,7 +43,7 @@ export class ImageAgent extends Agent {
   constructor() {
     super(
       "image_agent",
-      models.thinking,
+      models.fast,
       IMAGE_AGENT_PROMPT,
       [generateImageTool, editImageTool, analyzeImageTool, generate3DFromImageTool],
       2048,

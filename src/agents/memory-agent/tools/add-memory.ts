@@ -1,7 +1,7 @@
 import type { Tool } from "agents/agent";
-import { addMemory } from "services/memory/local-memory-store";
+import { addMemory } from "services/memory/memory-store";
 
-export const addMemoryLocalTool: Tool = {
+export const addMemoryTool: Tool = {
   definition: {
     name: "add_memory",
     description: "Store a new memory for future reference. Memories are searchable by semantic similarity.",

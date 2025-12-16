@@ -1,76 +1,92 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { getFilePath } from "services/google-drive/drive-folder-cache";
-import { type DriveFile, formatDriveFile, getDriveClient } from "services/google-drive/google-drive";
+import { parseQuery, searchFiles } from "services/google-drive/drive-search";
+import { buildTree } from "services/google-drive/drive-tree";
 
 export const searchDriveFilesTool: Tool = {
   definition: {
     name: "search_drive_files",
-    description:
-      "Search for files and folders in Google Drive by name or other criteria. Returns matching files with detailed information. Use this when you need to find specific files without knowing their exact location.",
+    description: `Search Google Drive with rich query syntax.
+
+Query syntax:
+- Simple: "concept art" (name contains)
+- Type: "type:folder", "type:image", "type:pdf"
+- Path: "path:Assets/*/textures" (local filter)
+- Date: "modified:>7d" or "modified:2024-01-01..2024-06-01"
+- Glob: "*.png" or "*.{png,jpg}"
+- Regex: "/pattern/i"
+- Size: "size:>1mb" or "size:<100kb"
+- Fulltext: "fulltext:keyword" (search inside docs)
+- Combined: "type:image modified:>30d"
+
+Examples:
+- "Iris concept" - files with "Iris concept" in name
+- "type:folder Assets" - folders containing "Assets"
+- "*.png type:image" - PNG images
+- "/helios.*texture/i" - regex match`,
     input_schema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description:
-            "Search query. Can be a filename or part of it. The search is case-insensitive and will match partial names.",
-        },
-        mime_type: {
-          type: "string",
-          description:
-            "Optional MIME type filter. Examples: 'application/vnd.google-apps.folder' for folders, 'application/pdf' for PDFs, 'image/jpeg' for JPEG images.",
+          description: "Search query with optional filters",
         },
         folder_id: {
           type: "string",
-          description:
-            "Optional folder ID to search within. If not provided, searches the entire Drive. Use this to narrow down search results to a specific folder.",
+          description: "Limit search to specific folder ID",
         },
-        page_size: {
+        max_results: {
           type: "number",
-          description: "Maximum number of results to return. Defaults to 50. Maximum is 1000.",
+          description: "Maximum results (default: 50, max: 500)",
+        },
+        include_paths: {
+          type: "boolean",
+          description: "Build full paths (slower but more useful). Default: true",
         },
       },
       required: ["query"],
     },
   },
   execute: async (toolInput) => {
-    const query = toolInput.query as string;
-    const mimeType = toolInput.mime_type as string | undefined;
+    const queryStr = toolInput.query as string;
     const folderId = toolInput.folder_id as string | undefined;
-    const pageSize = Math.min((toolInput.page_size as number) || 50, 1000);
+    const maxResults = Math.min((toolInput.max_results as number) ?? 50, 500);
+    const includePaths = (toolInput.include_paths as boolean) ?? true;
 
-    logger.info({ query, mimeType, folderId, pageSize }, "Searching Drive files");
+    logger.info({ query: queryStr, folderId, maxResults }, "Searching Drive files");
 
-    const queryParts = [`name contains '${query}'`, "trashed = false"];
-    if (mimeType) queryParts.push(`mimeType = '${mimeType}'`);
-    if (folderId) queryParts.push(`'${folderId}' in parents`);
+    const query = parseQuery(queryStr);
+    if (folderId) query.parentId = folderId;
 
-    const searchQuery = queryParts.join(" and ");
+    // Build path map if needed for path filtering or display
+    let parentPaths: Map<string, string> | undefined;
+    if (includePaths || query.pathPattern) {
+      const tree = await buildTree(undefined, { maxDepth: 4, includeFiles: false });
+      parentPaths = tree.pathMap;
+    }
 
-    const drive = getDriveClient();
-    const response = await drive.files.list({
-      q: searchQuery,
-      pageSize,
-      fields: "files(id, name, mimeType, size, createdTime, modifiedTime, parents, webViewLink, iconLink)",
-      orderBy: "folder,name",
-    });
+    const result = await searchFiles(query, { maxResults, parentPaths });
 
-    // Add full paths to files
-    const files: DriveFile[] = await Promise.all(
-      (response.data.files || []).map(async (file) => {
-        const parentId = file.parents?.[0];
-        const path = await getFilePath(parentId, file.name || "");
-        return formatDriveFile(file, path);
-      }),
+    logger.info(
+      {
+        query: queryStr,
+        results: result.files.length,
+        apiCalls: result.apiCalls,
+        timeMs: result.executionTimeMs.toFixed(0),
+      },
+      "Drive search completed",
     );
 
-    logger.info({ query, resultCount: files.length }, "Drive search completed");
-
     return {
-      query,
-      total_results: files.length,
-      files,
+      query: queryStr,
+      total_results: result.files.length,
+      files: result.files,
+      stats: {
+        api_calls: result.apiCalls,
+        scanned: result.totalScanned,
+        matched: result.filterMatched,
+        time_ms: Math.round(result.executionTimeMs),
+      },
     };
   },
 };

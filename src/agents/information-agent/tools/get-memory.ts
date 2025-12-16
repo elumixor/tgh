@@ -1,6 +1,6 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { memoryStore } from "services/notion/memory-store";
+import { getMemory } from "services/memory/memory-store";
 
 export const getMemoryTool: Tool = {
   definition: {
@@ -12,7 +12,7 @@ export const getMemoryTool: Tool = {
       properties: {
         memoryId: {
           type: "string",
-          description: "The Notion page ID of the memory",
+          description: "The ID of the memory to retrieve",
         },
       },
       required: ["memoryId"],
@@ -24,7 +24,7 @@ export const getMemoryTool: Tool = {
     logger.info({ memoryId }, "Get memory request");
 
     try {
-      const memory = await memoryStore.getMemory(memoryId);
+      const memory = getMemory(memoryId);
 
       if (!memory) {
         return {
@@ -39,8 +39,8 @@ export const getMemoryTool: Tool = {
         memory: {
           id: memory.id,
           content: memory.content,
-          timestamp: memory.timestamp,
-          url: memory.url,
+          createdAt: memory.createdAt,
+          updatedAt: memory.updatedAt,
         },
       };
     } catch (error) {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { replaceToolsWithMocks } from "utils/test-utils";
+import { createMockContext, replaceToolsWithMocks } from "utils/test-utils";
 import { InformationAgent } from "./information-agent";
 
 describe("InformationAgent", () => {
@@ -12,7 +12,7 @@ describe("InformationAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call search_gdd for GDD searches", async () => {
-    await agent.processTask("Search the GDD for player movement mechanics");
+    await agent.processTask("Search the GDD for player movement mechanics", createMockContext());
 
     const searchGDDMock = mocks.get("search_gdd");
     expect(searchGDDMock).toBeDefined();
@@ -23,7 +23,7 @@ describe("InformationAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call search_memories for memory searches", async () => {
-    await agent.processTask("What do we know about user preferences?");
+    await agent.processTask("What do we know about user preferences?", createMockContext());
 
     const searchMemoriesMock = mocks.get("search_memories");
     expect(searchMemoriesMock).toBeDefined();
@@ -34,7 +34,7 @@ describe("InformationAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call add_memory for adding memories", async () => {
-    await agent.processTask("Remember that the user prefers concise responses");
+    await agent.processTask("Remember that the user prefers concise responses", createMockContext());
 
     const addMemoryMock = mocks.get("add_memory");
     expect(addMemoryMock).toBeDefined();
@@ -45,7 +45,7 @@ describe("InformationAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call get_gdd_page for specific GDD pages", async () => {
-    await agent.processTask("Get the GDD page with ID abc123");
+    await agent.processTask("Get the GDD page with ID abc123", createMockContext());
 
     const getGDDPageMock = mocks.get("get_gdd_page");
     expect(getGDDPageMock).toBeDefined();
@@ -56,7 +56,7 @@ describe("InformationAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call web_search for web queries", async () => {
-    await agent.processTask("Search the web for latest Unity tips");
+    await agent.processTask("Search the web for latest Unity tips", createMockContext());
 
     const webSearchMock = mocks.get("web_search");
     expect(webSearchMock).toBeDefined();

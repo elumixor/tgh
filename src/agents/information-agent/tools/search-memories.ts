@@ -1,6 +1,6 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { memoryStore } from "services/notion/memory-store";
+import { searchMemories } from "services/memory/memory-store";
 
 export const searchMemoriesTool: Tool = {
   definition: {
@@ -31,7 +31,7 @@ export const searchMemoriesTool: Tool = {
     logger.info({ query, topK }, "Memory search request");
 
     try {
-      const memories = await memoryStore.searchMemories(query, topK);
+      const memories = await searchMemories(query, topK);
 
       return {
         success: true,
@@ -41,8 +41,7 @@ export const searchMemoriesTool: Tool = {
           id: m.id,
           content: m.content,
           similarity: m.similarity,
-          timestamp: m.timestamp,
-          url: m.url,
+          timestamp: m.createdAt,
         })),
       };
     } catch (error) {

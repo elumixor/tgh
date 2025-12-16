@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createMockContext } from "utils/test-utils";
 import { searchDriveFilesTool } from "./search-drive-files";
 
 describe("searchDriveFilesTool", () => {
@@ -9,7 +10,7 @@ describe("searchDriveFilesTool", () => {
   });
 
   test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should search files by query", async () => {
-    const result = (await searchDriveFilesTool.execute({ query: "Assets" })) as {
+    const result = (await searchDriveFilesTool.execute({ query: "Assets" }, createMockContext())) as {
       query: string;
       total_results: number;
       files: unknown[];
@@ -21,10 +22,10 @@ describe("searchDriveFilesTool", () => {
   });
 
   test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should filter by mime type", async () => {
-    const result = (await searchDriveFilesTool.execute({
-      query: "Assets",
-      mime_type: "application/vnd.google-apps.folder",
-    })) as {
+    const result = (await searchDriveFilesTool.execute(
+      { query: "Assets", mime_type: "application/vnd.google-apps.folder" },
+      createMockContext(),
+    )) as {
       query: string;
       total_results: number;
       files: Array<{ mimeType: string }>;
@@ -38,10 +39,7 @@ describe("searchDriveFilesTool", () => {
   });
 
   test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should respect page size", async () => {
-    const result = (await searchDriveFilesTool.execute({
-      query: "test",
-      page_size: 5,
-    })) as {
+    const result = (await searchDriveFilesTool.execute({ query: "test", page_size: 5 }, createMockContext())) as {
       total_results: number;
     };
 

@@ -34,6 +34,8 @@ const envSchema = z
 
     // Google Drive
     GOOGLE_DRIVE_CREDENTIALS: z.string().min(1, "GOOGLE_DRIVE_CREDENTIALS is required"),
+
+    VERBOSE: z.number().default(0),
   })
   .refine((data) => data.BOT_MODE !== "webhook" || data.WEBHOOK_URL, {
     message: "WEBHOOK_URL is required when BOT_MODE is 'webhook'",

@@ -1,7 +1,7 @@
 import type { Tool } from "agents/agent";
-import { getMemory } from "services/memory/local-memory-store";
+import { getMemory } from "services/memory/memory-store";
 
-export const getMemoryLocalTool: Tool = {
+export const getMemoryTool: Tool = {
   definition: {
     name: "get_memory",
     description: "Retrieve a specific memory by its ID",

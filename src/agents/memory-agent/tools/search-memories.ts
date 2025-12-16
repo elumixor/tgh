@@ -1,7 +1,7 @@
 import type { Tool } from "agents/agent";
-import { searchMemories } from "services/memory/local-memory-store";
+import { searchMemories } from "services/memory/memory-store";
 
-export const searchMemoriesLocalTool: Tool = {
+export const searchMemoriesTool: Tool = {
   definition: {
     name: "search_memories",
     description: "Search for relevant memories using semantic similarity. Returns memories ranked by relevance.",

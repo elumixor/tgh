@@ -36,6 +36,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # test output
 test-output/
+cache/
 
 # CLI history
 .cli_history

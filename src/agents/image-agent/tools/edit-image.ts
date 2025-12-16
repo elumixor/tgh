@@ -1,13 +1,12 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { geminiClient } from "services/gemini/gemini";
-import { saveTempFile } from "utils/temp-files";
 
 export const editImageTool: Tool = {
   definition: {
     name: "edit_image",
     description:
-      "Edit or modify existing images based on text instructions. Supports modifications like changing colors/lighting, adding/removing objects, style transfer. Returns edited image file path - auto-sent via output handler.",
+      "Edit or modify existing images based on text instructions. Supports modifications like changing colors/lighting, adding/removing objects, style transfer. Returns edited image file.",
     input_schema: {
       type: "object",
       properties: {
@@ -42,7 +41,7 @@ export const editImageTool: Tool = {
     const refCount = image_urls.length - 1;
     logger.info({ prompt, imageCount: image_urls.length, aspectRatio }, "Image editing request");
 
-    context?.progress?.message(
+    context.statusMessage.replaceWith(
       refCount > 0
         ? `🎨 Editing image (using ${refCount} reference${refCount > 1 ? "s" : ""})...`
         : "🎨 Editing image...",
@@ -55,7 +54,6 @@ export const editImageTool: Tool = {
     });
 
     const buffer = Buffer.from(base64Image, "base64");
-    const tempPath = await saveTempFile(buffer, "png");
 
     logger.info({ prompt }, "Image editing completed");
 
@@ -63,14 +61,7 @@ export const editImageTool: Tool = {
       success: true,
       message: "Image edited successfully",
       prompt,
-      files: [
-        {
-          path: tempPath,
-          mimeType: "image/png",
-          caption: "Edited image",
-          filename: "edited.png",
-        },
-      ],
+      files: [{ buffer, mimeType: "image/png", filename: "edited.png" }],
     };
   },
 };

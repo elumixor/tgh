@@ -1,14 +1,13 @@
 import type { Tool } from "agents/agent";
+import type { FileData } from "io";
 import { logger } from "logger";
 import { meshyClient } from "services/meshy/meshy";
-import type { FileOutput } from "utils/output";
-import { saveTempFile } from "utils/temp-files";
 
 export const generate3DFromImageTool: Tool = {
   definition: {
     name: "generate_3d_from_image",
     description:
-      "Generate a 3D model from an image URL. Long-running operation with progress updates. Returns GLB/FBX model files via output handler.",
+      "Generate a 3D model from an image URL. Long-running operation with progress updates. Returns GLB/FBX model files.",
     input_schema: {
       type: "object",
       properties: {
@@ -25,7 +24,7 @@ export const generate3DFromImageTool: Tool = {
 
     logger.info({ image_url }, "3D generation request");
 
-    context?.progress?.message("🔄 Starting 3D generation...");
+    context.statusMessage.replaceWith("🔄 Starting 3D generation...");
 
     const taskId = await meshyClient.createImageTo3D({ image_url });
     logger.info({ taskId, image_url }, "3D generation task created");
@@ -40,7 +39,7 @@ export const generate3DFromImageTool: Tool = {
         CANCELED: "🚫",
       }[task.status];
 
-      context?.progress?.message(`${statusEmoji} ${task.status}: ${task.progress}%`);
+      context.statusMessage.replaceWith(`${statusEmoji} ${task.status}: ${task.progress}%`);
     });
 
     if (finalTask.status !== "SUCCEEDED") {
@@ -55,28 +54,26 @@ export const generate3DFromImageTool: Tool = {
 
     logger.info({ taskId, glbUrl, fbxUrl }, "3D generation completed");
 
-    // Download and save files
-    const files: FileOutput[] = [];
+    // Download files
+    const files: FileData[] = [];
 
     if (glbUrl) {
-      const glbData = await meshyClient.downloadFile(glbUrl);
-      const glbPath = await saveTempFile(glbData, "glb");
-      files.push({ path: glbPath, mimeType: "model/gltf-binary", filename: "model.glb", caption: "GLB Model" });
+      const glbBuffer = await meshyClient.downloadFile(glbUrl);
+      files.push({ buffer: glbBuffer, mimeType: "model/gltf-binary", filename: "model.glb" });
     }
 
     if (fbxUrl) {
-      const fbxData = await meshyClient.downloadFile(fbxUrl);
-      const fbxPath = await saveTempFile(fbxData, "fbx");
-      files.push({ path: fbxPath, mimeType: "application/octet-stream", filename: "model.fbx", caption: "FBX Model" });
+      const fbxBuffer = await meshyClient.downloadFile(fbxUrl);
+      files.push({ buffer: fbxBuffer, mimeType: "application/octet-stream", filename: "model.fbx" });
     }
 
-    // Send files via output handler
-    if (context?.output && files.length > 0) await context.output.sendFiles(files);
+    const formats = files.map((f) => f.filename?.split(".")[1]?.toUpperCase()).join(", ");
 
     return {
       success: true,
-      message: `3D model generated (${files.map((f) => f.filename?.split(".")[1]?.toUpperCase()).join(", ")})`,
+      message: `3D model generated (${formats})`,
       taskId,
+      files,
     };
   },
 };

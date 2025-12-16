@@ -1,7 +1,7 @@
 import type { Tool } from "agents/agent";
-import { updateMemory } from "services/memory/local-memory-store";
+import { updateMemory } from "services/memory/memory-store";
 
-export const updateMemoryLocalTool: Tool = {
+export const updateMemoryTool: Tool = {
   definition: {
     name: "update_memory",
     description: "Update the content of an existing memory",

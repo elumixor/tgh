@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createMockContext } from "utils/test-utils";
 import { renameDriveFileTool } from "./rename-drive-file";
 
 describe("renameDriveFileTool", () => {
@@ -12,7 +13,7 @@ describe("renameDriveFileTool", () => {
   test.skipIf(process.env.RUN_MANUAL_TESTS !== "1")("[MANUAL] should rename file successfully", async () => {
     const testFileId = "YOUR_TEST_FILE_ID";
     const newName = `TestFile_${Date.now()}`;
-    const result = await renameDriveFileTool.execute({ file_id: testFileId, new_name: newName });
+    const result = await renameDriveFileTool.execute({ file_id: testFileId, new_name: newName }, createMockContext());
     expect(result).toHaveProperty("success");
   });
 

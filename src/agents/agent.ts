@@ -1,9 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import { env } from "env";
 import type { Context } from "grammy";
+import type { BlockHandle, FileData, MessageHandle } from "io/types";
 import { logger } from "logger";
-import type { FileOutput, Output } from "utils/output";
-import type { Progress } from "utils/progress";
+import { summarizer } from "services/summarizer";
 
 const MAX_TOOL_ITERATIONS = 10;
 
@@ -20,13 +20,14 @@ export type AgentResponse =
 export interface ToolContext {
   telegramCtx?: Context;
   messageId?: number;
-  progress?: Progress;
-  output?: Output;
+  statusMessage: MessageHandle;
+  parentBlock?: BlockHandle;
+  verbose?: boolean;
 }
 
 export interface Tool {
   definition: Anthropic.Tool;
-  execute: (toolInput: Record<string, unknown>, context?: ToolContext) => Promise<unknown>;
+  execute: (toolInput: Record<string, unknown>, context: ToolContext) => Promise<unknown>;
 }
 
 export abstract class Agent implements Tool {
@@ -42,7 +43,7 @@ export abstract class Agent implements Tool {
     public readonly thinkingBudget?: number,
   ) {}
 
-  async execute(toolInput: Record<string, unknown>, context?: ToolContext): Promise<unknown> {
+  async execute(toolInput: Record<string, unknown>, context: ToolContext): Promise<unknown> {
     const task = toolInput.task as string;
     if (!task) throw new Error("Task is required");
 
@@ -53,13 +54,22 @@ export abstract class Agent implements Tool {
     return { result: response.result };
   }
 
-  async processTask(task: string, context?: ToolContext): Promise<AgentResponse> {
+  async processTask(task: string, context: ToolContext): Promise<AgentResponse> {
     const taskId = Math.random().toString(36).substring(2, 9);
     const taskPreview = task.length > 100 ? `${task.substring(0, 100)}...` : task;
-    const progress = context?.progress;
+    const verbose = context.verbose ?? false;
 
-    // Only log to logger in verbose mode
-    if (progress?.isVerbose) {
+    // Create agent block - as child if parentBlock exists, otherwise as root
+    const agentBlock = context.parentBlock
+      ? context.parentBlock.addChild({ type: "agent", name: this.name, task: taskPreview })
+      : context.statusMessage.createBlock({ type: "agent", name: this.name, task: taskPreview });
+    agentBlock.state = "in_progress";
+
+    const thinking = this.thinkingBudget
+      ? ({ type: "enabled", budget_tokens: this.thinkingBudget } as const)
+      : undefined;
+
+    if (verbose) {
       logger.info(
         {
           taskId,
@@ -73,29 +83,19 @@ export abstract class Agent implements Tool {
       );
     }
 
-    // Report to progress targets
-    progress?.agent(this.name, "start", taskPreview);
-
     try {
       const messages: Anthropic.MessageParam[] = [{ role: "user", content: task }];
 
-      // Process initial task
-      if (progress?.isVerbose) logger.info({ taskId, agent: this.name }, `[${taskId}] Calling API (initial)`);
+      if (verbose) logger.info({ taskId, agent: this.name }, `[${taskId}] Calling API (initial)`);
       let response = await this.client.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
         system: this.systemPrompt,
         tools: this.tools.map((t) => t.definition),
         messages,
-        thinking: this.thinkingBudget
-          ? {
-              type: "enabled",
-              budget_tokens: this.thinkingBudget,
-            }
-          : undefined,
+        thinking,
       });
 
-      // Use tools while requested and within iteration limit
       let iterations = 0;
       while (response.stop_reason === "tool_use" && iterations < MAX_TOOL_ITERATIONS) {
         iterations++;
@@ -103,7 +103,7 @@ export abstract class Agent implements Tool {
         const toolUses = response.content.filter((b) => b.type === "tool_use");
         if (toolUses.length === 0) break;
 
-        if (progress?.isVerbose) {
+        if (verbose) {
           logger.info(
             {
               taskId,
@@ -124,44 +124,64 @@ export abstract class Agent implements Tool {
           .map(async (toolUse) => {
             if (toolUse.type !== "tool_use") return null;
 
-            const toolId = Math.random().toString(36).substring(2, 7);
+            const toolLogId = Math.random().toString(36).substring(2, 7);
+            const tool = this.tools.find((t) => t.definition.name === toolUse.name);
+            if (!tool) {
+              return {
+                type: "tool_result" as const,
+                tool_use_id: toolUse.id,
+                content: JSON.stringify({ error: `Tool ${toolUse.name} not found` }),
+                is_error: true,
+              };
+            }
+
+            const isSubAgent = tool instanceof Agent;
+
+            // For sub-agents, don't create toolBlock - the sub-agent creates its own agent block
+            // For regular tools, create a toolBlock to show progress
+            const toolBlock = isSubAgent
+              ? null
+              : agentBlock.addChild({ type: "tool", name: toolUse.name, input: toolUse.input });
+            if (toolBlock) toolBlock.state = "in_progress";
 
             try {
-              const tool = this.tools.find((t) => t.definition.name === toolUse.name);
-              if (!tool) throw new Error(`Tool ${toolUse.name} not found`);
-
-              // Report tool start to progress
-              progress?.tool(toolUse.name, "start");
-
-              if (progress?.isVerbose) {
+              if (verbose) {
                 const inputStr = JSON.stringify(toolUse.input);
                 const inputPreview = inputStr.length > 150 ? `${inputStr.substring(0, 150)}...` : inputStr;
                 logger.info(
-                  { taskId, toolId, agent: this.name, tool: toolUse.name },
-                  `[${taskId}:${toolId}] → ${toolUse.name}(${inputPreview})`,
+                  { taskId, toolId: toolLogId, agent: this.name, tool: toolUse.name },
+                  `[${taskId}:${toolLogId}] → ${toolUse.name}(${inputPreview})`,
                 );
               }
 
-              const result = await tool.execute(toolUse.input as Record<string, unknown>, context);
+              const result = await tool.execute(toolUse.input as Record<string, unknown>, {
+                ...context,
+                parentBlock: agentBlock, // Sub-agents use this to nest their block
+              });
 
-              // Check for file outputs and send to output targets
+              // Check for file outputs and send to output
               if (result && typeof result === "object" && "files" in result) {
-                const files = (result as { files: FileOutput[] }).files;
-                if (Array.isArray(files) && files.length > 0 && context?.output) {
-                  await context.output.sendFiles(files);
+                const files = (result as { files: FileData[] }).files;
+                if (Array.isArray(files) && files.length > 0) {
+                  for (const file of files) {
+                    if (file.mimeType.startsWith("image/")) context.statusMessage.addPhoto(file);
+                    else context.statusMessage.addFile(file);
+                  }
                 }
               }
 
-              // Report tool completion
+              // Update tool block with result (only for regular tools)
               const resultStr = JSON.stringify(result);
-              const resultPreview = resultStr.length > 80 ? `${resultStr.substring(0, 80)}...` : resultStr;
-              progress?.tool(toolUse.name, "complete", resultPreview);
+              if (toolBlock) {
+                toolBlock.content = { type: "tool", name: toolUse.name, input: toolUse.input, result };
+                toolBlock.state = "completed";
+              }
 
-              if (progress?.isVerbose) {
+              if (verbose) {
                 const fullPreview = resultStr.length > 200 ? `${resultStr.substring(0, 200)}...` : resultStr;
                 logger.info(
-                  { taskId, toolId, agent: this.name, tool: toolUse.name, resultLength: resultStr.length },
-                  `[${taskId}:${toolId}] ✓ ${toolUse.name}: ${fullPreview}`,
+                  { taskId, toolId: toolLogId, agent: this.name, tool: toolUse.name, resultLength: resultStr.length },
+                  `[${taskId}:${toolLogId}] ✓ ${toolUse.name}: ${fullPreview}`,
                 );
               }
 
@@ -173,13 +193,16 @@ export abstract class Agent implements Tool {
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
 
-              // Report tool error
-              progress?.tool(toolUse.name, "error", errorMessage);
+              // Update tool block with error details (only for regular tools)
+              if (toolBlock) {
+                toolBlock.content = { type: "tool", name: toolUse.name, input: toolUse.input, error: errorMessage };
+                toolBlock.state = "error";
+              }
 
-              if (progress?.isVerbose) {
+              if (verbose) {
                 logger.error(
-                  { taskId, toolId, agent: this.name, tool: toolUse.name, error: errorMessage },
-                  `[${taskId}:${toolId}] ✗ ${toolUse.name} failed: ${errorMessage}`,
+                  { taskId, toolId: toolLogId, agent: this.name, tool: toolUse.name, error: errorMessage },
+                  `[${taskId}:${toolLogId}] ✗ ${toolUse.name} failed: ${errorMessage}`,
                 );
               }
 
@@ -192,7 +215,6 @@ export abstract class Agent implements Tool {
             }
           });
 
-        // Wait for all tools to complete in parallel
         const results = await Promise.all(toolExecutions);
         for (const result of results) {
           if (result !== null) toolResults.push(result);
@@ -201,7 +223,7 @@ export abstract class Agent implements Tool {
         messages.push({ role: "assistant", content: response.content });
         messages.push({ role: "user", content: toolResults });
 
-        if (progress?.isVerbose) {
+        if (verbose) {
           logger.info(
             { taskId, agent: this.name, iteration: iterations },
             `[${taskId}] Calling API (iteration ${iterations})`,
@@ -213,22 +235,19 @@ export abstract class Agent implements Tool {
           system: this.systemPrompt,
           tools: this.tools.map((t) => t.definition),
           messages,
-          thinking: this.thinkingBudget
-            ? {
-                type: "enabled",
-                budget_tokens: this.thinkingBudget,
-              }
-            : undefined,
+          thinking,
         });
       }
 
       const textBlock = response.content.find((b) => b.type === "text");
       const result = textBlock && textBlock.type === "text" ? textBlock.text : "No response";
 
-      // Report completion
-      progress?.agent(this.name, "complete", `${iterations} iterations`);
+      // Summarize result and store in block content
+      const resultSummary = await summarizer.summarize(result);
+      agentBlock.content = { type: "agent", name: this.name, task: taskPreview, result: resultSummary };
+      agentBlock.state = "completed";
 
-      if (progress?.isVerbose) {
+      if (verbose) {
         const resultPreview = result.length > 150 ? `${result.substring(0, 150)}...` : result;
         logger.info(
           {
@@ -249,11 +268,10 @@ export abstract class Agent implements Tool {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Report error
-      progress?.agent(this.name, "error", errorMessage);
-      progress?.error(error);
+      // Mark agent as error
+      agentBlock.state = "error";
 
-      if (progress?.isVerbose) {
+      if (verbose) {
         logger.error({ taskId, agent: this.name, error }, `[${taskId}] ✗ ${this.name} failed`);
       }
 

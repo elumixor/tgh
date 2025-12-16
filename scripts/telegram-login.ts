@@ -24,7 +24,7 @@ async function main() {
 
   if (!parsed.success) {
     console.error("❌ Missing required environment variables:");
-    console.error(parsed.error.flatten().fieldErrors);
+    console.error(z.treeifyError(parsed.error));
     console.error("\nMake sure your .env file contains:");
     console.error("  TELEGRAM_API_ID=...");
     console.error("  TELEGRAM_API_HASH=...");

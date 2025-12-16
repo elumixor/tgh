@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { replaceToolsWithMocks } from "utils/test-utils";
+import { createMockContext, replaceToolsWithMocks } from "utils/test-utils";
 import { ImageAgent } from "./image-agent";
 
 describe("ImageAgent", () => {
@@ -12,7 +12,7 @@ describe("ImageAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call generate_image for image generation", async () => {
-    await agent.processTask("Generate an image of a sunset");
+    await agent.processTask("Generate an image of a sunset", createMockContext());
 
     const generateMock = mocks.get("generate_image");
     expect(generateMock).toBeDefined();
@@ -23,7 +23,7 @@ describe("ImageAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call edit_image for image editing", async () => {
-    await agent.processTask("Edit this image to make it brighter");
+    await agent.processTask("Edit this image to make it brighter", createMockContext());
 
     const editMock = mocks.get("edit_image");
     expect(editMock).toBeDefined();
@@ -34,7 +34,7 @@ describe("ImageAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call analyze_image for image analysis", async () => {
-    await agent.processTask("What's in this image?");
+    await agent.processTask("What's in this image?", createMockContext());
 
     const analyzeMock = mocks.get("analyze_image");
     expect(analyzeMock).toBeDefined();
@@ -45,7 +45,7 @@ describe("ImageAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call generate_3d_from_image for 3D generation", async () => {
-    await agent.processTask("Convert this image to a 3D model");
+    await agent.processTask("Convert this image to a 3D model", createMockContext());
 
     const generate3DMock = mocks.get("generate_3d_from_image");
     expect(generate3DMock).toBeDefined();

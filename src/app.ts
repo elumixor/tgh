@@ -1,12 +1,10 @@
 import { MasterAgent } from "agents/master-agent/master-agent";
 import { env } from "env";
 import { Bot } from "grammy";
+import { TelegramOutput } from "io";
 import { logger } from "logger";
 import { JobQueue } from "services/job-queue";
-import { replyWithLongMessage } from "services/telegram";
 import { formatError, isBotMentioned, isImageDocument } from "utils";
-import { Output, TelegramOutputTarget } from "utils/output";
-import { Progress, TelegramTarget } from "utils/progress";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
@@ -23,36 +21,28 @@ export class App {
     // Set up job processor
     this.jobQueue.setHandler(async (job) => {
       try {
-        // Create progress tracker with Telegram target for status updates
-        const progress = new Progress();
-        progress.addTarget(new TelegramTarget(job.ctx, job.statusMessageId));
-
-        // Create output handler with Telegram target for file outputs
-        const output = new Output({ cleanupAfterSend: false });
-        output.addTarget(new TelegramOutputTarget(job.ctx, job.messageId, job.statusMessageId));
+        // Create Telegram output using existing status message
+        const telegramOutput = new TelegramOutput(
+          job.ctx,
+          job.messageId,
+          500, // debounceMs
+          false, // verbose
+          job.statusMessageId, // use existing message
+        );
+        const statusMessage = telegramOutput.sendMessage({ text: "" });
 
         const result = await this.masterAgent.processTask(job.userMessage, {
           telegramCtx: job.ctx,
           messageId: job.messageId,
-          progress,
-          output,
+          statusMessage,
         });
-
-        // Clean up progress and status message
-        progress.clearTargets();
-        await job.ctx.api.deleteMessage(job.chatId, job.statusMessageId).catch(() => {});
 
         if (!result.success) throw new Error(result.error ?? "Master agent task failed");
 
         logger.info({ jobId: job.id }, "Master agent completed");
 
-        if (result.result) {
-          const replyOptions: { reply_parameters: { message_id: number }; message_thread_id?: number } = {
-            reply_parameters: { message_id: job.messageId },
-          };
-          if (job.threadId) replyOptions.message_thread_id = job.threadId;
-          await replyWithLongMessage(job.ctx, result.result, replyOptions);
-        }
+        // Append final result to status message (keeping the status visible)
+        if (result.result) statusMessage.append(`\n---\n${result.result}`);
       } catch (error) {
         logger.error({ jobId: job.id, error: formatError(error) }, "Error processing job");
         throw error; // Let job queue handle error reporting
@@ -86,8 +76,8 @@ export class App {
         const userMessage = ctx.message.text || ctx.message.caption || "";
         if (!userMessage) return;
 
-        // Send initial status message
-        const statusMessage = await ctx.reply("Processing...", {
+        // Send initial status message (will be updated via TelegramOutput)
+        const statusMsg = await ctx.reply("Processing...", {
           reply_parameters: { message_id: ctx.message.message_id },
         });
 
@@ -97,7 +87,7 @@ export class App {
           ctx,
           userMessage,
           messageId: ctx.message.message_id,
-          statusMessageId: statusMessage.message_id,
+          statusMessageId: statusMsg.message_id,
           chatId: ctx.chat.id,
           threadId: ctx.message.message_thread_id,
         });

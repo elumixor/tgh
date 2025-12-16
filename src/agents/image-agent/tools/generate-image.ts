@@ -2,13 +2,12 @@ import type { PersonGeneration } from "@google/genai";
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { geminiClient, type ReferenceImage } from "services/gemini/gemini";
-import { saveTempFile } from "utils/temp-files";
 
 export const generateImageTool: Tool = {
   definition: {
     name: "generate_image",
     description:
-      "Generate images from text description using Gemini AI. Supports style/reference images for consistency. Returns file paths - images are automatically sent to user via output handler.",
+      "Generate images from text description using Gemini AI. Supports style/reference images for consistency. Returns generated image files.",
     input_schema: {
       type: "object",
       properties: {
@@ -61,10 +60,8 @@ export const generateImageTool: Tool = {
       "Image generation request",
     );
 
-    // Report progress
-    context?.progress?.message(`🎨 Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`);
+    context.statusMessage.replaceWith(`🎨 Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`);
 
-    // Generate images (synchronous - waits for completion)
     const base64Images = await geminiClient.generateImage({
       prompt,
       referenceImages,
@@ -73,18 +70,11 @@ export const generateImageTool: Tool = {
       personGeneration,
     });
 
-    // Save to temp files
-    const files = [];
-    for (const [i, base64] of base64Images.entries()) {
-      const buffer = Buffer.from(base64, "base64");
-      const tempPath = await saveTempFile(buffer, "png");
-      files.push({
-        path: tempPath,
-        mimeType: "image/png",
-        caption: base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image",
-        filename: `generated-${i + 1}.png`,
-      });
-    }
+    const files = base64Images.map((base64, i) => ({
+      buffer: Buffer.from(base64, "base64"),
+      mimeType: "image/png",
+      filename: `generated-${i + 1}.png`,
+    }));
 
     logger.info({ prompt, count: files.length }, "Image generation completed");
 
@@ -92,7 +82,6 @@ export const generateImageTool: Tool = {
       success: true,
       message: `Generated ${files.length} image${files.length > 1 ? "s" : ""}`,
       prompt,
-      // Output handler will send these to Telegram/console
       files,
     };
   },

@@ -1,6 +1,6 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { memoryStore } from "services/notion/memory-store";
+import { addMemory } from "services/memory/memory-store";
 
 export const addMemoryTool: Tool = {
   definition: {
@@ -25,7 +25,7 @@ export const addMemoryTool: Tool = {
     logger.info({ contentLength: content.length }, "Add memory request");
 
     try {
-      const memoryId = await memoryStore.addMemory(content);
+      const memoryId = await addMemory(content);
 
       return {
         success: true,

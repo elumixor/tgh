@@ -48,7 +48,7 @@ export class IntentionAgent extends Agent {
   constructor() {
     super(
       "intention_agent",
-      models.thinking,
+      models.fast,
       INTENTION_AGENT_PROMPT,
       [searchMessagesTool, getChatHistoryTool, getMessageInfoTool, getChatInfoTool],
       2048,

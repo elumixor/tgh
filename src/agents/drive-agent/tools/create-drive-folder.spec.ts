@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DriveFile } from "services/google-drive/google-drive";
+import { createMockContext } from "utils/test-utils";
 import { createDriveFolderTool } from "./create-drive-folder";
 import { deleteDriveFileTool } from "./delete-drive-file";
 
@@ -14,10 +15,10 @@ describe("Create Drive Folder", () => {
     const hypocrisyFolderId = "1WtB8aX6aH5s0_fS6xoQPc_0QOC9Hg5ok";
     const testFolderName = `test-folder-${Date.now()}`;
 
-    const createResult = (await createDriveFolderTool.execute({
-      name: testFolderName,
-      parent_folder_id: hypocrisyFolderId,
-    })) as CreateDriveFolderResult;
+    const createResult = (await createDriveFolderTool.execute(
+      { name: testFolderName, parent_folder_id: hypocrisyFolderId },
+      createMockContext(),
+    )) as CreateDriveFolderResult;
 
     console.log("Created folder:", createResult);
 
@@ -26,7 +27,7 @@ describe("Create Drive Folder", () => {
     expect(createResult.folder.isFolder).toBe(true);
     expect(createResult.folder.parents).toContain(hypocrisyFolderId);
 
-    await deleteDriveFileTool.execute({ file_id: createResult.folder.id });
+    await deleteDriveFileTool.execute({ file_id: createResult.folder.id }, createMockContext());
     console.log("Deleted test folder");
   });
 });

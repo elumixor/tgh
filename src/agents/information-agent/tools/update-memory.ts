@@ -1,6 +1,6 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
-import { memoryStore } from "services/notion/memory-store";
+import { updateMemory } from "services/memory/memory-store";
 
 export const updateMemoryTool: Tool = {
   definition: {
@@ -29,7 +29,15 @@ export const updateMemoryTool: Tool = {
     logger.info({ memoryId, contentLength: newContent.length }, "Update memory request");
 
     try {
-      await memoryStore.updateMemory(memoryId, newContent);
+      const success = await updateMemory(memoryId, newContent);
+
+      if (!success) {
+        return {
+          success: false,
+          memoryId,
+          error: "Memory not found",
+        };
+      }
 
       return {
         success: true,

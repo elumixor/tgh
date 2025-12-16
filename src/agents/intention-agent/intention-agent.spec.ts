@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { replaceToolsWithMocks } from "utils/test-utils";
+import { createMockContext, replaceToolsWithMocks } from "utils/test-utils";
 import { IntentionAgent } from "./intention-agent";
 
 describe("IntentionAgent", () => {
@@ -12,7 +12,7 @@ describe("IntentionAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call search_messages for searching", async () => {
-    await agent.processTask("Find recent messages mentioning 'test'");
+    await agent.processTask("Find recent messages mentioning 'test'", createMockContext());
 
     const searchMock = mocks.get("search_messages");
     expect(searchMock).toBeDefined();
@@ -23,7 +23,7 @@ describe("IntentionAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call get_chat_history for history", async () => {
-    await agent.processTask("Get the last 10 messages");
+    await agent.processTask("Get the last 10 messages", createMockContext());
 
     const historyMock = mocks.get("get_chat_history");
     expect(historyMock).toBeDefined();
@@ -34,7 +34,7 @@ describe("IntentionAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call get_chat_info for chat information", async () => {
-    await agent.processTask("Get information about this chat");
+    await agent.processTask("Get information about this chat", createMockContext());
 
     const chatInfoMock = mocks.get("get_chat_info");
     expect(chatInfoMock).toBeDefined();
@@ -45,7 +45,7 @@ describe("IntentionAgent", () => {
   });
 
   test.if(!!process.env.RUN_MANUAL_TESTS)("[MANUAL] should call get_message_info for specific message", async () => {
-    await agent.processTask("Get details about message 123");
+    await agent.processTask("Get details about message 123", createMockContext());
 
     const messageInfoMock = mocks.get("get_message_info");
     expect(messageInfoMock).toBeDefined();

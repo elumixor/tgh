@@ -19,6 +19,10 @@ bun run format       # Format with Biome
 - Remove obvious comments explaining what code does (code should be self-explanatory)
 - Keep minimal spacing, avoid excessive blank lines
 - Compact object returns when simple (e.g., `return { inlineData: { mimeType, data } };`)
+- **Never use `setXXX()`/`getXXX()` methods** - use TypeScript getters/setters instead
+- **Never use `||` for defaults** - always use `??` (nullish coalescing) unless you specifically need to handle falsy values
+- **Never add unnecessary `?` optional chaining** - if a value is always defined, don't mark it optional
+- **Interface vs abstract class**: Use interface when defining a contract with no shared implementation; use abstract class only when there's behavior to share
 
 ## Testing Guidelines
 
@@ -50,22 +54,21 @@ When creating or updating agent system prompts:
    - Add parameters/overloads to existing tools instead of creating variants
 
 2. **Don't couple tools with output (Telegram/console)**
-   - Tools return data (file paths, results) - NOT send to Telegram directly
-   - Output is handled by the Output system (`src/utils/output/`)
-   - For file outputs, return `files: FileOutput[]` in the result
-   - The Agent class detects file outputs and sends via Output targets
+   - Tools return data (buffers, results) - NOT send to Telegram directly
+   - Output is handled by the IO system (`src/io/`)
+   - For file outputs, return `files: FileData[]` in the result
+   - The Agent class detects file outputs and sends via MessageHandle
 
-3. **Use temp files for binary data passing**
-   - Save buffers to temp files, pass paths between tools
-   - Temp files are cleaned up after Output sends them
-   - See `src/utils/temp-files.ts` for utilities
+3. **Binary data in results**
+   - Return buffers directly in results, not temp file paths
+   - See `src/io/types.ts` for FileData interface
 
 ## Adding New Tools
 
 1. Create tool file in the appropriate agent's `tools/` directory
 2. Export and add to agent's tool array
-3. For file outputs: Return `{ files: [{ path, mimeType, filename?, caption? }] }`
-4. Use `context?.progress?.message()` for status updates
+3. For file outputs: Return `{ files: [{ buffer, mimeType, filename? }] }`
+4. Use `context.statusMessage.replaceWith()` for status updates
 5. Tools should be synchronous (wait for completion) unless truly long-running
 
 ## General Guidelines
@@ -101,3 +104,51 @@ class Example {
 ```
 
 - When working on some feature, it is okay to run manual tests. Don't run all tests unless it's ACTUALLY needed. Run only specific tests related to your changes. Once these tests have succeeded, you may run the final automatic (non-manual) unit tests.
+
+## IO Architecture (`src/io/`)
+
+The IO system provides abstracted Input and Output handling for both Telegram and CLI.
+
+### Input System (Event-based)
+
+```typescript
+abstract class Input {
+  on(event: "message", callback: (msg: Message) => void): void;
+  off(event: "message", callback: (msg: Message) => void): void;
+}
+
+// Implementations: CLIInput, TelegramInput
+// TelegramInput auto-transcribes voice messages via Whisper before emitting
+```
+
+### Output System (Fire-and-forget with queue)
+
+```typescript
+abstract class Output {
+  sendMessage(content: { text: string; files?: FileData[] }): MessageHandle;
+}
+
+interface MessageHandle {
+  append(text: string): void; // Add text
+  addPhoto(file: FileData): void; // Send photo (compressed by Telegram)
+  addFile(file: FileData): void; // Send file (no compression)
+  replaceWith(text: string): void; // Replace message content
+  clear(): void; // Delete/clear message
+  createBlock(content: BlockContent): BlockHandle; // Create updatable block
+}
+
+// Implementations: ConsoleOutput, TelegramOutput, FileOutput
+// OutputGroup combines multiple outputs (continue-on-error)
+```
+
+### Usage in Agents
+
+```typescript
+// Entry point creates output and passes statusMessage to agent
+const output = new ConsoleOutput();
+const statusMessage = output.sendMessage({ text: "Processing..." });
+await agent.processTask(task, { statusMessage });
+
+// Tools use statusMessage for progress updates
+context.statusMessage.replaceWith("🎨 Generating image...");
+```

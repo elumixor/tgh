@@ -1,5 +1,5 @@
 import { describe, expect, test as t } from "bun:test";
-import { replaceToolsWithMocks } from "utils/test-utils";
+import { createMockContext, replaceToolsWithMocks } from "utils/test-utils";
 import { MasterAgent } from "./master-agent";
 
 function test(name: string, fn: () => Promise<void>) {
@@ -11,7 +11,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    await masterAgent.processTask("generate an image of a cat", { messageId: 1 });
+    await masterAgent.processTask("generate an image of a cat", createMockContext({ messageId: 1 }));
 
     const imageMock = mocks.get("image_agent");
     expect(imageMock).toBeDefined();
@@ -25,7 +25,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    await masterAgent.processTask("list my files on google drive", { messageId: 1 });
+    await masterAgent.processTask("list my files on google drive", createMockContext({ messageId: 1 }));
 
     const driveMock = mocks.get("drive_agent");
     expect(driveMock).toBeDefined();
@@ -39,7 +39,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    await masterAgent.processTask("search for messages about 'claude'");
+    await masterAgent.processTask("search for messages about 'claude'", createMockContext());
 
     const infoMock = mocks.get("information_agent");
     expect(infoMock).toBeDefined();
@@ -53,7 +53,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    await masterAgent.processTask("What movies are shown this week in Paris?");
+    await masterAgent.processTask("What movies are shown this week in Paris?", createMockContext());
 
     const infoMock = mocks.get("information_agent");
     expect(infoMock).toBeDefined();
@@ -67,7 +67,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    await masterAgent.processTask("check API balances");
+    await masterAgent.processTask("check API balances", createMockContext());
 
     const balancesMock = mocks.get("get_api_balances");
     expect(balancesMock).toBeDefined();
@@ -81,7 +81,7 @@ describe.concurrent("MasterAgent", () => {
     const masterAgent = new MasterAgent();
     const mocks = replaceToolsWithMocks(masterAgent.tools);
 
-    const result = await masterAgent.processTask("hello");
+    const result = await masterAgent.processTask("hello", createMockContext());
     expect(result.success).toBe(true);
     expect(result).toHaveProperty("result");
 
