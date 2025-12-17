@@ -13,6 +13,7 @@ export interface Message {
 export interface MessageContent {
   text: string;
   files?: FileData[];
+  replyToMessageId?: number;
 }
 
 // Block system for structured progress updates

@@ -1,184 +1,13 @@
-import type { Context } from "grammy";
-import { InputFile } from "grammy";
+import { type Context, InputFile } from "grammy";
+import type { Block, BlockContent, BlockHandle, FileData, MessageContent, MessageHandle } from "io/types";
 import { logger } from "logger";
-import { summarizer } from "services/summarizer";
-import { splitMessage } from "services/telegram/telegram-message-splitter";
+import { splitMessage } from "services/telegram";
 import { markdownToTelegramHtml } from "utils";
-import type { Output } from "./output";
-import type { Block, BlockContent, BlockHandle, BlockState, FileData, MessageContent, MessageHandle } from "./types";
+import { TelegramBlockHandle } from "./telegram-block-handle";
+import { formatBlock, type Operation } from "./telegram-output";
 
-type Operation =
-  | { type: "append"; text: string }
-  | { type: "replaceWith"; text: string }
-  | { type: "addPhoto"; file: FileData }
-  | { type: "addFile"; file: FileData }
-  | { type: "clear" };
-
-// Convert snake_case to CamelCase
-function toCamelCase(name: string): string {
-  return name
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join("");
-}
-
-// Format name: "drive_agent" -> "Drive", "search_drive_files" -> "SearchDriveFiles"
-function formatName(name: string, type: "agent" | "tool"): string {
-  const camelName = toCamelCase(name);
-  if (type === "agent") return camelName.replace(/Agent$/i, "");
-  return camelName;
-}
-
-// Get status indicator based on state
-function getStatusIndicator(state: BlockState): string {
-  if (state === "completed") return "✓";
-  if (state === "error") return "✖";
-  return "...";
-}
-
-// Compute effective state: parent is in_progress if any child is in_progress
-function getEffectiveState(block: Block): BlockState {
-  if (block.state === "error") return "error";
-  const hasInProgressChild = block.children.some((c) => getEffectiveState(c) === "in_progress");
-  if (hasInProgressChild) return "in_progress";
-  return block.state;
-}
-
-function formatBlock(block: Block, verbose: boolean, depth = 0): string {
-  // Skip MasterAgent blocks - format only their children
-  if (block.content.type === "agent" && block.content.name.toLowerCase().includes("master")) {
-    return block.children.map((child) => formatBlock(child, verbose, depth)).join("\n");
-  }
-
-  const indent = "  ".repeat(depth);
-  const content = block.content;
-  const effectiveState = getEffectiveState(block);
-  const status = getStatusIndicator(effectiveState);
-
-  if (content.type === "agent") {
-    const name = formatName(content.name, "agent");
-    // Show summary first (cleaned), then fall back to task
-    const summary = content.summary ?? content.task;
-
-    // Format: Name: summary [status]
-    let line = `${indent}${name}`;
-    if (summary) line += `: ${summary}`;
-    line += ` ${status}`;
-
-    // Add children
-    const childLines = block.children.map((child) => formatBlock(child, verbose, depth + 1)).filter(Boolean);
-    if (childLines.length > 0) return `${line}\n${childLines.join("\n")}`;
-    return line;
-  }
-
-  if (content.type === "tool") {
-    const name = formatName(content.name, "tool");
-    // Show only summary - no raw JSON
-    const summary = content.error ?? content.summary;
-
-    // Format: └ <b>ToolName</b>: summary [status]
-    let line = `${indent}└ <b>${name}</b>`;
-    if (summary) line += `: ${summary}`;
-    line += ` ${status}`;
-
-    return line;
-  }
-
-  if (content.type === "text") return `${indent}${content.text}`;
-  if (content.type === "file") return `${indent}${content.data.filename ?? "file"}`;
-  if (content.type === "error") return `${indent}${content.message}`;
-
-  return "";
-}
-
-function formatBlocks(blocks: Block[], verbose: boolean, jobLink?: string): string {
-  const blockText = blocks.map((block) => formatBlock(block, verbose)).join("\n");
-  if (jobLink) {
-    // Check if any block is still in progress
-    const isProcessing = blocks.some((b) => getEffectiveState(b) === "in_progress");
-    const linkText = isProcessing ? "Processing..." : "Job Details";
-    // Use markdown link syntax - will be converted to HTML by markdownToTelegramHtml
-    return `[${linkText}](${jobLink})\n${blockText}`;
-  }
-  return blockText;
-}
-
-class TelegramBlockHandle implements BlockHandle {
-  private _state: BlockState = "in_progress";
-  private _content: BlockContent;
-
-  constructor(
-    private readonly block: Block,
-    private readonly updateFn: () => void,
-    private readonly verbose: boolean,
-  ) {
-    this._content = block.content;
-  }
-
-  get state(): BlockState {
-    return this._state;
-  }
-
-  set state(value: BlockState) {
-    this._state = value;
-    this.block.state = value;
-    this.updateFn();
-  }
-
-  get content(): BlockContent {
-    return this._content;
-  }
-
-  set content(value: BlockContent) {
-    this._content = value;
-    this.block.content = value;
-    if (!this.verbose) this.triggerSummarization();
-    this.updateFn();
-  }
-
-  addChild(content: BlockContent): BlockHandle {
-    const child: Block = {
-      id: Math.random().toString(36).substring(2, 9),
-      state: "in_progress",
-      content,
-      children: [],
-    };
-    this.block.children.push(child);
-    this.updateFn();
-    return new TelegramBlockHandle(child, this.updateFn, this.verbose);
-  }
-
-  private triggerSummarization(): void {
-    const content = this.block.content;
-
-    if (content.type === "tool") {
-      summarizer
-        .summarizeTool({
-          toolName: content.name,
-          input: content.input,
-          output: content.result,
-        })
-        .then((summary) => {
-          (content as { summary?: string }).summary = summary;
-          this.updateFn();
-        });
-    } else if (content.type === "agent") {
-      summarizer
-        .summarizeAgent({
-          agentName: content.name,
-          task: content.task ?? "unknown task",
-          result: content.result,
-        })
-        .then((summary) => {
-          (content as { summary?: string }).summary = summary;
-          this.updateFn();
-        });
-    }
-  }
-}
-
-class TelegramMessageHandle implements MessageHandle {
-  private text: string;
+export class TelegramMessageHandle implements MessageHandle {
+  private text = this.content.text;
   private lastSentText?: string;
   private messageIds: number[] = [];
   private deleted = false;
@@ -187,24 +16,14 @@ class TelegramMessageHandle implements MessageHandle {
   private queue: Operation[] = [];
   private processing = false;
   private debounceTimeout?: Timer;
+  private readonly replyToMessageId = this.content.replyToMessageId;
 
   constructor(
     private readonly ctx: Context,
-    content: MessageContent,
-    private readonly replyToMessageId?: number,
+    private readonly content: MessageContent,
     private readonly debounceMs = 500,
-    private readonly verbose = false,
-    existingMessageId?: number,
-    private readonly jobLink?: string,
   ) {
-    this.text = content.text;
-    if (existingMessageId) {
-      // Use existing message instead of creating new one
-      this.messageIds = [existingMessageId];
-      this.lastSentText = content.text;
-    } else {
-      this.sendInitialMessage(content);
-    }
+    void this.sendInitialMessage(content);
   }
 
   createBlock(content: BlockContent): BlockHandle {
@@ -216,12 +35,11 @@ class TelegramMessageHandle implements MessageHandle {
     };
     this.blocks.push(block);
     this.updateBlocksDisplay();
-    return new TelegramBlockHandle(block, () => this.updateBlocksDisplay(), this.verbose);
+    return new TelegramBlockHandle(block, () => this.updateBlocksDisplay());
   }
 
   private updateBlocksDisplay(): void {
-    const blockText = formatBlocks(this.blocks, this.verbose, this.jobLink);
-    this.replaceWith(blockText);
+    this.replaceWith(this.blocks.map((block) => formatBlock(block)).join("\n"));
   }
 
   append(text: string): void {
@@ -255,11 +73,11 @@ class TelegramMessageHandle implements MessageHandle {
       if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.debounceTimeout = setTimeout(() => {
         this.queue.push({ type: "replaceWith", text: this.text });
-        this.processQueue();
+        void this.processQueue();
       }, this.debounceMs);
     } else {
       this.queue.push(op);
-      this.processQueue();
+      void this.processQueue();
     }
   }
 
@@ -426,28 +244,5 @@ class TelegramMessageHandle implements MessageHandle {
     } catch (error) {
       logger.error({ error: error instanceof Error ? error.message : error }, "TelegramOutput: initial send failed");
     }
-  }
-}
-
-export class TelegramOutput implements Output {
-  constructor(
-    private readonly ctx: Context,
-    private readonly replyToMessageId?: number,
-    private readonly debounceMs = 500,
-    private readonly verbose = false,
-    private readonly existingMessageId?: number,
-    private readonly jobLink?: string,
-  ) {}
-
-  sendMessage(content: MessageContent): MessageHandle {
-    return new TelegramMessageHandle(
-      this.ctx,
-      content,
-      this.replyToMessageId,
-      this.debounceMs,
-      this.verbose,
-      this.existingMessageId,
-      this.jobLink,
-    );
   }
 }

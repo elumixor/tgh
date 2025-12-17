@@ -28,29 +28,13 @@ export const updateMemoryTool: Tool = {
 
     logger.info({ memoryId, contentLength: newContent.length }, "Update memory request");
 
-    try {
-      const success = await updateMemory(memoryId, newContent);
+    const success = await updateMemory(memoryId, newContent);
 
-      if (!success) {
-        return {
-          success: false,
-          memoryId,
-          error: "Memory not found",
-        };
-      }
+    if (!success) throw new Error(`Memory not found: ${memoryId}`);
 
-      return {
-        success: true,
-        memoryId,
-        message: "Memory updated successfully",
-      };
-    } catch (error) {
-      logger.error({ memoryId, error: error instanceof Error ? error.message : error }, "Failed to update memory");
-      return {
-        success: false,
-        memoryId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    return {
+      memoryId,
+      message: "Memory updated successfully",
+    };
   },
 };

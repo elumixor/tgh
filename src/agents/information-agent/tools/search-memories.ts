@@ -30,27 +30,17 @@ export const searchMemoriesTool: Tool = {
 
     logger.info({ query, topK }, "Memory search request");
 
-    try {
-      const memories = await searchMemories(query, topK);
+    const memories = await searchMemories(query, topK);
 
-      return {
-        success: true,
-        query,
-        count: memories.length,
-        memories: memories.map((m) => ({
-          id: m.id,
-          content: m.content,
-          similarity: m.similarity,
-          timestamp: m.createdAt,
-        })),
-      };
-    } catch (error) {
-      logger.error({ query, error: error instanceof Error ? error.message : error }, "Memory search failed");
-      return {
-        success: false,
-        query,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    return {
+      query,
+      count: memories.length,
+      memories: memories.map((m) => ({
+        id: m.id,
+        content: m.content,
+        similarity: m.similarity,
+        timestamp: m.createdAt,
+      })),
+    };
   },
 };

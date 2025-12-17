@@ -48,7 +48,7 @@ export class MasterAgent extends Agent {
   constructor() {
     super(
       "MasterAgent",
-      models.fast,
+      models.thinking,
       MASTER_SYSTEM_PROMPT,
       [
         // Direct tools
@@ -62,6 +62,7 @@ export class MasterAgent extends Agent {
         new MemoryAgent(),
       ],
       2048,
+      1024,
     );
   }
 }

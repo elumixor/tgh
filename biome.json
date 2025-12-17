@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.9/schema.json",
   "files": {
     "includes": ["src/**", "scripts/**", "*.json", "*.ts"]
   },
@@ -8,7 +8,16 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "useAwait": "error"
+      },
+      "style": {
+        "useShorthandAssign": "error",
+        "useConsistentObjectDefinitions": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "useConsistentArrowReturn": "error"
       }
     }
   },

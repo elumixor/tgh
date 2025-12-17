@@ -243,7 +243,7 @@ export abstract class Agent implements Tool {
       const result = textBlock && textBlock.type === "text" ? textBlock.text : "No response";
 
       // Summarize result and store in block content
-      const resultSummary = await summarizer.summarize(result);
+      const resultSummary = await summarizer.summarizeTool({ toolName: this.name, input: task, output: result });
       agentBlock.content = { type: "agent", name: this.name, task: taskPreview, result: resultSummary };
       agentBlock.state = "completed";
 

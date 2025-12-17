@@ -23,23 +23,13 @@ export const getGDDPageTool: Tool = {
 
     logger.info({ pageId }, "GDD page content request");
 
-    try {
-      const pageContent = await notionClient.getPageContent(pageId);
+    const pageContent = await notionClient.getPageContent(pageId);
 
-      return {
-        success: true,
-        id: pageContent.id,
-        title: pageContent.title,
-        content: pageContent.content,
-        url: pageContent.url,
-      };
-    } catch (error) {
-      logger.error({ pageId, error: error instanceof Error ? error.message : error }, "Failed to get GDD page");
-      return {
-        success: false,
-        pageId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    return {
+      id: pageContent.id,
+      title: pageContent.title,
+      content: pageContent.content,
+      url: pageContent.url,
+    };
   },
 };

@@ -1,27 +1,13 @@
-import type { Context } from "grammy";
 import { logger } from "logger";
 import { formatError } from "utils";
-
-export interface Job {
-  id: string;
-  ctx: Context;
-  userMessage: string;
-  messageId: number;
-  statusMessageId: number;
-  chatId: number;
-  threadId?: number;
-}
-
-type JobHandler = (job: Job) => Promise<void>;
+import { summarizer } from "../summarizer";
+import type { Job } from "./job";
 
 export class JobQueue {
   private queue: Job[] = [];
   private processing = false;
-  private handler?: JobHandler;
 
-  setHandler(handler: JobHandler) {
-    this.handler = handler;
-  }
+  constructor(private readonly handler: (job: Job) => Promise<void>) {}
 
   enqueue(job: Job) {
     this.queue.push(job);
@@ -48,8 +34,14 @@ export class JobQueue {
       logger.info({ jobId: job.id }, "Job completed");
     } catch (error) {
       logger.error({ jobId: job.id, error: formatError(error) }, "Job failed");
+
+      const userMessage =
+        error instanceof Error
+          ? await summarizer.summarizeError(error)
+          : "An unexpected error occurred. Please try again.";
+
       try {
-        await job.ctx.api.sendMessage(job.chatId, "Sorry, I encountered an error processing your request.", {
+        await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
           reply_parameters: { message_id: job.messageId },
         });
       } catch (sendError) {
@@ -59,13 +51,5 @@ export class JobQueue {
       this.processing = false;
       void this.processNext();
     }
-  }
-
-  getQueueLength() {
-    return this.queue.length;
-  }
-
-  isProcessing() {
-    return this.processing;
   }
 }

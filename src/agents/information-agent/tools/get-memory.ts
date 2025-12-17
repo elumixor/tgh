@@ -23,33 +23,17 @@ export const getMemoryTool: Tool = {
 
     logger.info({ memoryId }, "Get memory request");
 
-    try {
-      const memory = getMemory(memoryId);
+    const memory = getMemory(memoryId);
 
-      if (!memory) {
-        return {
-          success: false,
-          memoryId,
-          error: "Memory not found",
-        };
-      }
+    if (!memory) throw new Error(`Memory not found: ${memoryId}`);
 
-      return {
-        success: true,
-        memory: {
-          id: memory.id,
-          content: memory.content,
-          createdAt: memory.createdAt,
-          updatedAt: memory.updatedAt,
-        },
-      };
-    } catch (error) {
-      logger.error({ memoryId, error: error instanceof Error ? error.message : error }, "Failed to get memory");
-      return {
-        success: false,
-        memoryId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    return {
+      memory: {
+        id: memory.id,
+        content: memory.content,
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+      },
+    };
   },
 };

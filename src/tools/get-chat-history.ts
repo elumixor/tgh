@@ -30,36 +30,19 @@ export const getChatHistoryTool: Tool = {
 
     logger.info({ limit, offset }, "Chat history request received");
 
-    try {
-      const results = await gramjsClient.getMessageHistory({ limit, offset });
+    const results = await gramjsClient.getMessageHistory({ limit, offset });
 
-      if (results.length === 0) {
-        logger.info({ limit, offset }, "No messages found in chat history");
-        return { success: true, limit, offset, results: [] };
-      }
+    if (results.length === 0) logger.info({ limit, offset }, "No messages found in chat history");
 
-      logger.info({ limit, offset, count: results.length }, "Chat history retrieved");
-      return {
-        success: true,
-        limit,
-        offset,
-        results: results.map((msg) => ({
-          id: msg.id,
-          text: msg.text,
-          date: msg.date.toISOString(),
-        })),
-      };
-    } catch (error) {
-      logger.error(
-        { limit, offset, error: error instanceof Error ? error.message : error },
-        "Failed to get chat history",
-      );
-      return {
-        success: false,
-        limit,
-        offset,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    logger.info({ limit, offset, count: results.length }, "Chat history retrieved");
+    return {
+      limit,
+      offset,
+      results: results.map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        date: msg.date.toISOString(),
+      })),
+    };
   },
 };

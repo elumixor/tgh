@@ -31,31 +31,18 @@ export const searchMessagesTool: Tool = {
 
     logger.info({ query, limit }, "Message search request received");
 
-    try {
-      const results = await gramjsClient.searchMessages({ query, limit });
+    const results = await gramjsClient.searchMessages({ query, limit });
 
-      if (results.length === 0) {
-        logger.info({ query }, "No messages found");
-        return { success: true, query, results: [] };
-      }
+    if (results.length === 0) logger.info({ query }, "No messages found");
 
-      logger.info({ query, count: results.length }, "Message search completed");
-      return {
-        success: true,
-        query,
-        results: results.map((msg) => ({
-          id: msg.id,
-          text: msg.text,
-          date: msg.date.toISOString(),
-        })),
-      };
-    } catch (error) {
-      logger.error({ query, error: error instanceof Error ? error.message : error }, "Message search failed");
-      return {
-        success: false,
-        query,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    logger.info({ query, count: results.length }, "Message search completed");
+    return {
+      query,
+      results: results.map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        date: msg.date.toISOString(),
+      })),
+    };
   },
 };

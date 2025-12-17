@@ -3,9 +3,6 @@ export type BlockState = "in_progress" | "completed" | "error";
 
 export interface StoredJob {
   id: string;
-  chatId?: number;
-  messageId?: number;
-  userId?: number;
   username?: string;
   startedAt: string;
   completedAt?: string;
@@ -30,11 +27,4 @@ export interface StoredBlock {
   completedAt?: string;
   duration?: number;
   children: StoredBlock[];
-}
-
-export interface JobMetadata {
-  chatId?: number;
-  messageId?: number;
-  userId?: number;
-  username?: string;
 }

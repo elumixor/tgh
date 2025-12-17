@@ -15,20 +15,9 @@ export const getChatInfoTool: Tool = {
   execute: async () => {
     logger.info("Chat info request received");
 
-    try {
-      const chatInfo = await gramjsClient.getChatInfo();
+    const chatInfo = await gramjsClient.getChatInfo();
 
-      logger.info({ chatInfo }, "Chat info retrieved");
-      return {
-        success: true,
-        ...chatInfo,
-      };
-    } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Failed to get chat info");
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    logger.info({ chatInfo }, "Chat info retrieved");
+    return chatInfo;
   },
 };

@@ -37,67 +37,61 @@ export const getMessageInfoTool: Tool = {
 
     logger.info({ messageId, includeMentions, transcribeVoice }, "Message info request received");
 
-    try {
-      const [messageInfo, mentions] = await Promise.all([
-        gramjsClient.getMessageInfo(messageId),
-        includeMentions ? gramjsClient.getMessageMentions(messageId) : Promise.resolve(undefined),
-      ]);
+    const [messageInfo, mentions] = await Promise.all([
+      gramjsClient.getMessageInfo(messageId),
+      includeMentions ? gramjsClient.getMessageMentions(messageId) : Promise.resolve(undefined),
+    ]);
 
-      const result: Record<string, unknown> = {
-        success: true,
-        ...messageInfo,
-      };
+    const result: Record<string, unknown> = {
+      ...messageInfo,
+    };
 
-      if (mentions) {
-        result.replied_to = mentions.repliedTo;
-        result.replies = mentions.replies;
-      }
-
-      if (transcribeVoice && messageInfo.voice && context?.telegramCtx) {
-        try {
-          const bot = context.telegramCtx.api;
-          const msg = await bot.forwardMessage(env.ALLOWED_CHAT_ID, env.ALLOWED_CHAT_ID, messageId);
-
-          if (msg.voice) {
-            const fileLink = await bot.getFile(msg.voice.file_id);
-            const voiceUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-
-            const response = await fetch(voiceUrl);
-            const buffer = await response.arrayBuffer();
-            const file = new File([buffer], "voice.ogg", { type: "audio/ogg" });
-
-            const transcription = await openai.audio.transcriptions.create({
-              file,
-              model: "whisper-1",
-            });
-
-            await bot.deleteMessage(env.ALLOWED_CHAT_ID, msg.message_id);
-
-            result.voice_transcription = transcription.text;
-            logger.info({ messageId, transcriptionLength: transcription.text.length }, "Voice transcribed");
-          }
-        } catch (error) {
-          logger.error(
-            { messageId, error: error instanceof Error ? error.message : error },
-            "Voice transcription failed",
-          );
-          result.transcription_error = error instanceof Error ? error.message : "Unknown error";
-        }
-      }
-
-      logger.info(
-        {
-          messageId,
-          hasVoice: !!messageInfo.voice,
-          hasMentions: !!mentions,
-          transcribed: !!result.voice_transcription,
-        },
-        "Message info retrieved",
-      );
-      return result;
-    } catch (error) {
-      logger.error({ messageId, error: error instanceof Error ? error.message : error }, "Failed to get message info");
-      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    if (mentions) {
+      result.replied_to = mentions.repliedTo;
+      result.replies = mentions.replies;
     }
+
+    if (transcribeVoice && messageInfo.voice && context?.telegramCtx) {
+      try {
+        const bot = context.telegramCtx.api;
+        const msg = await bot.forwardMessage(env.ALLOWED_CHAT_ID, env.ALLOWED_CHAT_ID, messageId);
+
+        if (msg.voice) {
+          const fileLink = await bot.getFile(msg.voice.file_id);
+          const voiceUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
+
+          const response = await fetch(voiceUrl);
+          const buffer = await response.arrayBuffer();
+          const file = new File([buffer], "voice.ogg", { type: "audio/ogg" });
+
+          const transcription = await openai.audio.transcriptions.create({
+            file,
+            model: "whisper-1",
+          });
+
+          await bot.deleteMessage(env.ALLOWED_CHAT_ID, msg.message_id);
+
+          result.voice_transcription = transcription.text;
+          logger.info({ messageId, transcriptionLength: transcription.text.length }, "Voice transcribed");
+        }
+      } catch (error) {
+        logger.error(
+          { messageId, error: error instanceof Error ? error.message : error },
+          "Voice transcription failed",
+        );
+        result.transcription_error = error instanceof Error ? error.message : "Unknown error";
+      }
+    }
+
+    logger.info(
+      {
+        messageId,
+        hasVoice: !!messageInfo.voice,
+        hasMentions: !!mentions,
+        transcribed: !!result.voice_transcription,
+      },
+      "Message info retrieved",
+    );
+    return result;
   },
 };

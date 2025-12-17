@@ -10,8 +10,8 @@ import {
   memorySyncService,
   syncWithNotion,
   updateMemory,
-} from "./services/memory/memory-store";
-import type { SyncState } from "./services/memory/sync-service";
+} from "../src/services/memory/memory-store";
+import type { SyncState } from "../src/services/memory/sync-service";
 
 const CACHE_FILE = "./cache/memories.bin";
 

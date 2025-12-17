@@ -24,20 +24,11 @@ export const addMemoryTool: Tool = {
 
     logger.info({ contentLength: content.length }, "Add memory request");
 
-    try {
-      const memoryId = await addMemory(content);
+    const memoryId = await addMemory(content);
 
-      return {
-        success: true,
-        memoryId,
-        message: "Memory stored successfully",
-      };
-    } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Failed to add memory");
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    return {
+      memoryId,
+      message: "Memory stored successfully",
+    };
   },
 };

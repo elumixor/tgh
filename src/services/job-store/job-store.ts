@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "logger";
-import type { JobMetadata, StoredJob } from "./types";
+import type { StoredJob } from "./types";
 
 export interface JobStoreOptions {
   maxJobs?: number;
@@ -33,10 +33,9 @@ export class JobStore {
     return `${timestamp}-${random}`;
   }
 
-  createJob(id: string, task: string, metadata: JobMetadata = {}): StoredJob {
+  createJob(id: string, task: string): StoredJob {
     const job: StoredJob = {
       id,
-      ...metadata,
       startedAt: new Date().toISOString(),
       status: "running",
       task,
@@ -47,15 +46,11 @@ export class JobStore {
     return job;
   }
 
-  getRunningJob(id: string): StoredJob | undefined {
-    return this.runningJobs.get(id);
-  }
-
   updateJob(job: StoredJob): void {
     this.save(job);
   }
 
-  completeJob(id: string, status: "completed" | "error" = "completed"): void {
+  completeJob(id: string, status: "completed" | "error"): void {
     const job = this.runningJobs.get(id);
     if (!job) return;
 

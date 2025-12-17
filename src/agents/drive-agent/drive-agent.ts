@@ -49,7 +49,7 @@ export class DriveAgent extends Agent {
   constructor() {
     super(
       "drive_agent",
-      models.fast,
+      models.thinking,
       DRIVE_AGENT_PROMPT,
       [
         treeDriveTool,
@@ -62,6 +62,7 @@ export class DriveAgent extends Agent {
         deleteDriveFileTool,
       ],
       2048,
+      512,
     );
   }
 }
