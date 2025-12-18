@@ -18,6 +18,7 @@ export const getMemoryTool: Tool = {
       required: ["memoryId"],
     },
   },
+  // biome-ignore lint/suspicious/useAwait: Tool interface requires Promise return
   execute: async (toolInput) => {
     const memoryId = toolInput.memoryId as string;
 

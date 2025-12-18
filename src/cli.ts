@@ -1,17 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
+import type { ToolProgress } from "agents/agent";
 import { MasterAgent } from "agents/master-agent/master-agent";
-import { ConsoleOutput } from "io";
 import { parseArgs } from "utils/argparser";
 
 const masterAgent = new MasterAgent();
 const historyFile = path.join(process.cwd(), ".cli_history");
 
 const { verbose: isVerbose, args } = parseArgs();
-
-// Create console output with verbose flag
-const consoleOutput = new ConsoleOutput(isVerbose);
 
 const loadHistory = (): string[] => {
   if (fs.existsSync(historyFile)) {
@@ -29,9 +26,18 @@ const saveHistory = (rl: readline.Interface) => {
 const processMessage = async (message: string): Promise<void> => {
   console.log(""); // Empty line before output
 
-  const statusMessage = consoleOutput.sendMessage({ text: "" });
-
-  const result = await masterAgent.processTask(message, { statusMessage, verbose: isVerbose });
+  const result = await masterAgent.processTask(message, {
+    verbose: isVerbose,
+    onProgress: (progress: ToolProgress) => {
+      if (progress.type === "tool_start") console.log(`  → ${progress.toolName}...`);
+      else if (progress.type === "tool_complete") console.log(`  ✓ ${progress.toolName}`);
+      else if (progress.type === "tool_error") console.log(`  ✗ ${progress.toolName}: ${progress.error}`);
+      else if (progress.type === "status") console.log(`  ${progress.message}`);
+    },
+    onFile: (file) => {
+      console.log(`  📎 File: ${file.filename ?? "unnamed"} (${file.mimeType})`);
+    },
+  });
 
   console.log(""); // Empty line after output
 
@@ -84,7 +90,7 @@ const runSingleCommand = async (prompt: string) => {
 
 if (args.length > 0) {
   const prompt = args.join(" ");
-  runSingleCommand(prompt);
+  void runSingleCommand(prompt);
 } else {
-  runInteractive();
+  void runInteractive();
 }

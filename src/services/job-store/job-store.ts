@@ -27,12 +27,6 @@ export class JobStore {
     return join(this.directory, `${jobId}.json`);
   }
 
-  generateId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${timestamp}-${random}`;
-  }
-
   createJob(id: string, task: string): StoredJob {
     const job: StoredJob = {
       id,

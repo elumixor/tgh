@@ -60,7 +60,10 @@ export const generateImageTool: Tool = {
       "Image generation request",
     );
 
-    context.statusMessage.replaceWith(`🎨 Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`);
+    context.onProgress?.({
+      type: "status",
+      message: `Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`,
+    });
 
     const base64Images = await geminiClient.generateImage({
       prompt,

@@ -112,7 +112,7 @@ class MemorySyncService {
         this.notifyListeners();
         this.notifyRefreshCallbacks();
         // Process any queued operations after sync
-        this.processQueue();
+        void this.processQueue();
       })
       .catch((error) => {
         this.state.status = "error";
@@ -139,7 +139,7 @@ class MemorySyncService {
 
     this.saveQueue();
     this.updateState();
-    this.processQueue();
+    void this.processQueue();
   }
 
   // Queue an update operation
@@ -163,7 +163,7 @@ class MemorySyncService {
 
     this.saveQueue();
     this.updateState();
-    this.processQueue();
+    void this.processQueue();
   }
 
   // Queue a delete operation
@@ -186,7 +186,7 @@ class MemorySyncService {
 
     this.saveQueue();
     this.updateState();
-    this.processQueue();
+    void this.processQueue();
   }
 
   // Check if a memory has a pending operation

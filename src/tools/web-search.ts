@@ -22,7 +22,7 @@ export const webSearchTool: Tool = {
     const query = toolInput.query as string;
     logger.info({ query }, "Web search request");
 
-    context.statusMessage.replaceWith("🔍 Searching the web...");
+    context.onProgress?.({ type: "status", message: "Searching the web..." });
 
     const result = await webSearch(query);
 

@@ -1,5 +1,5 @@
 import type { Tool } from "agents/agent";
-import type { FileData } from "io";
+import type { FileData } from "io/output";
 import { logger } from "logger";
 import { meshyClient } from "services/meshy/meshy";
 
@@ -24,22 +24,14 @@ export const generate3DFromImageTool: Tool = {
 
     logger.info({ image_url }, "3D generation request");
 
-    context.statusMessage.replaceWith("🔄 Starting 3D generation...");
+    context.onProgress?.({ type: "status", message: "Starting 3D generation..." });
 
     const taskId = await meshyClient.createImageTo3D({ image_url });
     logger.info({ taskId, image_url }, "3D generation task created");
 
     // Poll for completion with progress updates
-    const finalTask = await meshyClient.pollTask(taskId, async (task) => {
-      const statusEmoji = {
-        PENDING: "⏳",
-        IN_PROGRESS: "🔄",
-        SUCCEEDED: "✅",
-        FAILED: "❌",
-        CANCELED: "🚫",
-      }[task.status];
-
-      context.statusMessage.replaceWith(`${statusEmoji} ${task.status}: ${task.progress}%`);
+    const finalTask = await meshyClient.pollTask(taskId, (task) => {
+      context.onProgress?.({ type: "status", message: `${task.status}: ${task.progress}%` });
     });
 
     if (finalTask.status !== "SUCCEEDED") {

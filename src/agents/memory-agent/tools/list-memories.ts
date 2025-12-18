@@ -12,6 +12,7 @@ export const listMemoriesTool: Tool = {
     },
   },
 
+  // biome-ignore lint/suspicious/useAwait: Tool interface requires Promise return
   async execute() {
     const memories = getAllMemories();
 

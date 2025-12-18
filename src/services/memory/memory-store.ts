@@ -32,10 +32,10 @@ interface MemoryCache {
 let isWriting = false;
 const writeQueue: (() => void)[] = [];
 
-async function acquireLock(): Promise<void> {
+function acquireLock(): Promise<void> {
   if (!isWriting) {
     isWriting = true;
-    return;
+    return Promise.resolve();
   }
   return new Promise((resolve) => {
     writeQueue.push(() => {

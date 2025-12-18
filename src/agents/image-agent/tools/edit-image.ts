@@ -41,11 +41,11 @@ export const editImageTool: Tool = {
     const refCount = image_urls.length - 1;
     logger.info({ prompt, imageCount: image_urls.length, aspectRatio }, "Image editing request");
 
-    context.statusMessage.replaceWith(
-      refCount > 0
-        ? `🎨 Editing image (using ${refCount} reference${refCount > 1 ? "s" : ""})...`
-        : "🎨 Editing image...",
-    );
+    context.onProgress?.({
+      type: "status",
+      message:
+        refCount > 0 ? `Editing image (using ${refCount} reference${refCount > 1 ? "s" : ""})...` : "Editing image...",
+    });
 
     const base64Image = await geminiClient.editImage({
       prompt,

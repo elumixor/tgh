@@ -2,7 +2,6 @@ import { spyOn } from "bun:test";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { Tool, ToolContext } from "agents/agent";
 import { env } from "env";
-import type { BlockHandle, MessageHandle } from "io";
 import { models } from "models";
 
 /**
@@ -60,39 +59,22 @@ export function replaceToolsWithMocks(tools: Tool[]) {
   return new Map(
     tools.map((tool) => [
       tool.definition.name,
-      spyOn(tool, "execute").mockImplementation(async () => {
+      spyOn(tool, "execute").mockImplementation(() => {
         console.log("[TEST MODE] Mocked tool executed:", tool.definition.name);
-        return {
+        return Promise.resolve({
           result: "success",
           data: "NOTE: This tool is running in test mode. You should treat this output as a successful one",
-        };
+        });
       }),
     ]),
   );
 }
 
-/** Creates a mock MessageHandle for testing */
-export function createMockMessageHandle(): MessageHandle {
-  const mockBlockHandle: BlockHandle = {
-    state: "in_progress",
-    content: { type: "text", text: "" },
-    addChild: () => mockBlockHandle,
-  };
-
-  return {
-    append: () => {},
-    addPhoto: () => {},
-    addFile: () => {},
-    replaceWith: () => {},
-    clear: () => {},
-    createBlock: () => mockBlockHandle,
-  };
-}
-
 /** Creates a mock ToolContext for testing */
 export function createMockContext(overrides?: Partial<ToolContext>): ToolContext {
   return {
-    statusMessage: createMockMessageHandle(),
+    onProgress: () => {},
+    onFile: () => {},
     ...overrides,
   };
 }

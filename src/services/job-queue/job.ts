@@ -2,18 +2,13 @@ import { env } from "env";
 import type { Context } from "grammy";
 
 export class Job {
+  readonly id = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
+  readonly link = `${env.BASE_URL}/jobs/${this.id}`;
+
   constructor(
-    readonly id: string,
     readonly telegramContext: Context,
     readonly userMessage: string,
     readonly messageId: number,
     readonly chatId: number,
   ) {}
-
-  get link() {
-    // Create job link URL for web inspector
-    const baseUrl = env.BOT_MODE === "webhook" ? env.WEBHOOK_URL : `http://localhost:${env.PORT}`;
-    const jobLink = baseUrl ? `${baseUrl}/jobs/${this.id}` : undefined;
-    return jobLink;
-  }
 }

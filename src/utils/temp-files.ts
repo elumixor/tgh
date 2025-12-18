@@ -16,24 +16,6 @@ export async function saveTempFile(data: Buffer, extension: string): Promise<str
 }
 
 /**
- * Delete a temp file (call after use)
- */
-export async function deleteTempFile(filePath: string): Promise<void> {
-  try {
-    await fs.unlink(filePath);
-  } catch {
-    // Ignore errors (file might already be deleted)
-  }
-}
-
-/**
- * Read a temp file as buffer
- */
-export async function readTempFile(filePath: string): Promise<Buffer> {
-  return await fs.readFile(filePath);
-}
-
-/**
  * Detect MIME type from file extension
  */
 export function detectMimeType(filePath: string): string {

@@ -1,6 +1,5 @@
 import { logger } from "logger";
-import { formatError } from "utils";
-import { summarizer } from "../summarizer";
+import { summarizer } from "services/summarizer";
 import type { Job } from "./job";
 
 export class JobQueue {
@@ -16,7 +15,7 @@ export class JobQueue {
   }
 
   private async processNext() {
-    if (this.processing || this.queue.length === 0) return;
+    if (this.processing || this.queue.isEmpty) return;
 
     this.processing = true;
     const job = this.queue.shift();
@@ -33,20 +32,14 @@ export class JobQueue {
       await this.handler(job);
       logger.info({ jobId: job.id }, "Job completed");
     } catch (error) {
-      logger.error({ jobId: job.id, error: formatError(error) }, "Job failed");
+      const userMessage = await summarizer.summarizeError(
+        error instanceof Error ? error : new Error(JSON.stringify(error)),
+      );
 
-      const userMessage =
-        error instanceof Error
-          ? await summarizer.summarizeError(error)
-          : "An unexpected error occurred. Please try again.";
-
-      try {
-        await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
-          reply_parameters: { message_id: job.messageId },
-        });
-      } catch (sendError) {
-        logger.error({ jobId: job.id, error: formatError(sendError) }, "Failed to send error message");
-      }
+      logger.error({ jobId: job.id, error }, "Job failed");
+      await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
+        reply_parameters: { message_id: job.messageId },
+      });
     } finally {
       this.processing = false;
       void this.processNext();

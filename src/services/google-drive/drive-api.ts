@@ -79,7 +79,7 @@ export async function listChildrenBatch(
 /**
  * Get shared root folders (top-level items shared with the service account)
  */
-export async function getSharedRoots(options?: { foldersOnly?: boolean }): Promise<ListResult> {
+export function getSharedRoots(options?: { foldersOnly?: boolean }): Promise<ListResult> {
   const mimeFilter = options?.foldersOnly ? " and mimeType = 'application/vnd.google-apps.folder'" : "";
   return listFiles({
     query: `sharedWithMe = true and trashed = false${mimeFilter}`,

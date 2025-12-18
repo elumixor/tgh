@@ -1,3 +1,5 @@
+import "@elumixor/extensions";
+
 import { env } from "env";
 import { webhookCallback } from "grammy";
 import { logger } from "logger";
@@ -13,7 +15,7 @@ import {
   subscribeToJob,
   unsubscribeFromJob,
 } from "web";
-import { App } from "./app";
+import { App } from "./app.tsx";
 
 // Initialize GramJS client
 try {
@@ -57,8 +59,8 @@ const handleWebhook =
     : null;
 
 if (env.BOT_MODE === "webhook") {
-  await app.bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
-  logger.info({ webhookUrl: `${env.WEBHOOK_URL}/webhook` }, "Webhook configured");
+  await app.bot.api.setWebhook(`${env.BASE_URL}/webhook`);
+  logger.info({ webhookUrl: `${env.BASE_URL}/webhook` }, "Webhook configured");
 } else {
   await app.bot.api.deleteWebhook();
   app.bot.start();
