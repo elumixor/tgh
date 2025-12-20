@@ -24,6 +24,9 @@ export function markdownToTelegramHtml(markdown: string): string {
     return placeholder;
   });
 
+  // Escape any raw HTML in the remaining text (placeholders stay intact)
+  html = escapeHtml(html);
+
   // Headers: Convert to bold with blockquote
   html = html.replace(/^### (.+)$/gm, "<b>$1</b>");
   html = html.replace(/^## (.+)$/gm, "<blockquote><b>$1</b></blockquote>");

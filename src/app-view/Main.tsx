@@ -5,7 +5,6 @@ import { useJob } from "@providers/JobProvider";
 import { masterAgent } from "agents/master-agent/master-agent";
 import { Message } from "io/output";
 import { useEffect, useState } from "react";
-import { markdownToTelegramHtml } from "utils";
 
 export function Main() {
   const job = useJob();
@@ -14,7 +13,7 @@ export function Main() {
   // Run the agent when the component mounts
   useEffect(() => {
     void run(masterAgent, job.messageText, {}).then((value) => {
-      setResult(markdownToTelegramHtml(value.finalOutput.response));
+      setResult(value.finalOutput.response);
       job.done = true;
     });
   }, []);

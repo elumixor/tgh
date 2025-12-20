@@ -53,6 +53,15 @@ describe("splitMessage", () => {
     expect(reconstructed).toBe(text);
   });
 
+  test("preserves HTML <pre> blocks", () => {
+    const preBlock = "<pre><code>const x = 1;\nconst y = 2;</code></pre>";
+    const text = `${"Some filler text. ".repeat(600)}\n\n${preBlock}\n\n${"More filler text. ".repeat(600)}`;
+    const result = splitMessage(text, 400);
+
+    const reconstructed = result.map((c) => c.text).join("");
+    expect(reconstructed).toBe(text);
+  });
+
   test("splits at paragraph breaks when possible", () => {
     const paragraph = "This is a paragraph. ".repeat(100);
     const text = Array.from({ length: 30 }, () => paragraph).join("\n\n");

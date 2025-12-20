@@ -38,13 +38,18 @@ export function splitMessage(text: string, maxLength = 4000): MessageChunk[] {
 
 function findCodeBlocks(text: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
-  const regex = /```[\s\S]*?```/g;
-  let match: RegExpExecArray | null = regex.exec(text);
 
-  while (match !== null) {
-    blocks.push({ start: match.index, end: match.index + match[0].length });
-    match = regex.exec(text);
+  const regexes = [/```[\s\S]*?```/g, /<pre(?:\s[^>]*)?>[\s\S]*?<\/pre>/gi];
+
+  for (const regex of regexes) {
+    let match: RegExpExecArray | null = regex.exec(text);
+    while (match !== null) {
+      blocks.push({ start: match.index, end: match.index + match[0].length });
+      match = regex.exec(text);
+    }
   }
+
+  blocks.sort((a, b) => a.start - b.start);
 
   return blocks;
 }

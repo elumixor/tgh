@@ -1,6 +1,7 @@
 import type { Context } from "grammy";
 import { splitMessage } from "services/telegram";
-import { type ElementNode, serialize } from "../../core";
+import type { ElementNode } from "../../core";
+import { serializeTelegram } from "./telegram-serializer";
 
 export class TelegramMessageManager {
   private messageIds: number[] = [];
@@ -18,7 +19,7 @@ export class TelegramMessageManager {
   }
 
   async update(node: ElementNode): Promise<void> {
-    const html = serialize(node);
+    const html = serializeTelegram(node);
     if (html === this.lastSentText) return;
 
     const chatId = this.chatId;

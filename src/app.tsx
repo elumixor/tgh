@@ -46,9 +46,12 @@ export class App {
   }
 
   private async processJob(job: Job): Promise<void> {
+    // const telegramRenderer = new TelegramRenderer(job.telegramContext);
+    // const consoleRenderer = new ConsoleRenderer();
+    // const renderer = new GroupRenderer(telegramRenderer, consoleRenderer);
+
     const telegramRenderer = new TelegramRenderer(job.telegramContext);
-    const consoleRenderer = new ConsoleRenderer();
-    const renderer = new GroupRenderer(telegramRenderer, consoleRenderer);
+    const renderer = new GroupRenderer(telegramRenderer);
 
     await renderer.render(
       <JobProvider job={job}>
