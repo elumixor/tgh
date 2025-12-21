@@ -1,7 +1,7 @@
 import { EventEmitter, random } from "@elumixor/frontils";
 import type { AppContext, FileData, ProgressEvent } from "context";
 import type { ExecutionEvent } from "events/event-types";
-import type { Context } from "grammy";
+import type { Context, Message } from "grammy";
 import { summarizer } from "services/summarizer";
 
 export class Job {
@@ -15,6 +15,7 @@ export class Job {
     readonly userMessage: string,
     readonly messageId: number,
     readonly chatId: number,
+    readonly repliedToMessage?: Message,
   ) {
     console.log(`Created job ${this.id} for message ${userMessage}`);
     this.summarizedName = summarizer.summarizeWorkflow(this.userMessage);
@@ -34,6 +35,7 @@ export class Job {
       messageId: this.messageId,
       chatId: this.chatId,
       userMessage: this.userMessage,
+      repliedToMessage: this.repliedToMessage,
       events: this.events,
       onProgress: options?.onProgress,
       onFile: options?.onFile,

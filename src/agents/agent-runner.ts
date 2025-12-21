@@ -3,8 +3,26 @@ import { run } from "@openai/agents";
 import { getContext } from "context-provider";
 
 /**
+ * Enrich user message with reply context if available
+ */
+function enrichMessageWithReplyContext(input: string): string {
+  const context = getContext();
+
+  // If there's no reply, return original input
+  if (!context.repliedToMessage) return input;
+
+  const reply = context.repliedToMessage;
+  const replyText = reply.text ?? reply.caption ?? "[media or unsupported content]";
+  const replyFrom = reply.from?.first_name ?? "Unknown";
+
+  // Inject reply context at the beginning of the message
+  return `[User is replying to a message from ${replyFrom}: "${replyText}"]\n\n${input}`;
+}
+
+/**
  * Wrapper around OpenAI SDK's run() function that emits execution events
  * Tracks agent execution start, completion, and errors
+ * Automatically injects reply context into the input message
  */
 export async function runAgentWithEvents<TOutput = unknown, TContext = unknown, TOutputFormat = unknown>(
   agent: Agent<TContext, TOutputFormat>,
@@ -14,15 +32,19 @@ export async function runAgentWithEvents<TOutput = unknown, TContext = unknown, 
   const context = getContext();
   const startTime = Date.now();
 
+  // Enrich input with reply context
+  const enrichedInput = enrichMessageWithReplyContext(input);
+
   // Emit agent started event
   context.events.emit({
     type: "agent_started",
     agentName: agent.name,
-    input,
+    input: enrichedInput,
   });
 
   try {
-    const result = await run<TOutput>(agent, input, options);
+    // Use enriched input for the agent call
+    const result = await run<TOutput>(agent, enrichedInput, options);
     const durationMs = Date.now() - startTime;
 
     // Emit agent completed event

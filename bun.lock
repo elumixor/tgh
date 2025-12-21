@@ -6,6 +6,7 @@
       "name": "tgh",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.71.2",
+        "@elumixor/event-emitter": "^1.0.7",
         "@elumixor/extensions": "^2.1.5",
         "@elumixor/frontils": "^3.0.15",
         "@google/genai": "^1.34.0",
@@ -63,6 +64,8 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.3.10", "", { "os": "win32", "cpu": "x64" }, "sha512-pHEFgq7dUEsKnqG9mx9bXihxGI49X+ar+UBrEIj3Wqj3UCZp1rNgV+OoyjFgcXsjCWpuEAF4VJdkZr3TrWdCbQ=="],
 
     "@cryptography/aes": ["@cryptography/aes@0.1.1", "", {}, "sha512-PcYz4FDGblO6tM2kSC+VzhhK62vml6k6/YAkiWtyPvrgJVfnDRoHGDtKn5UiaRRUrvUTTocBpvc2rRgTCqxjsg=="],
+
+    "@elumixor/event-emitter": ["@elumixor/event-emitter@1.0.7", "", {}, "sha512-mlnDlcuHuo4qYdp48vKOJBFUpNWtMYtUMh8lVCIKyt5/20SfIM3lx/3T0gedfiko20JDJbnP7lvL+1P8M8i2Lw=="],
 
     "@elumixor/extensions": ["@elumixor/extensions@2.1.5", "", {}, "sha512-GuXlxFpNB6t1ygMkUwBJ+O90J4MAfbfz67kFQ8LvvAN21UIa1Lwi4ZxH0k1a0/qe06bMpx8rzDEfhMUoRW1ejA=="],
 

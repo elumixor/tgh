@@ -27,19 +27,20 @@ export class App {
 
       const messageId = ctx.message.message_id;
       const userMessage = ctx.message.text ?? ctx.message.caption;
+      const repliedToMessage = ctx.message.reply_to_message;
 
       logger.info(
         {
           messageId,
           userMessage,
-          replyToMessage: ctx.message.reply_to_message,
+          replyToMessage: repliedToMessage,
         },
         "Received message",
       );
 
       if (!userMessage) return;
 
-      this.jobQueue.enqueue(new Job(ctx, userMessage, ctx.message.message_id, ctx.chat.id));
+      this.jobQueue.enqueue(new Job(ctx, userMessage, ctx.message.message_id, ctx.chat.id, repliedToMessage));
     });
   }
 

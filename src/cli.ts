@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import { EventEmitter, random } from "@elumixor/frontils";
+import { EventEmitter } from "@elumixor/event-emitter";
+import { random } from "@elumixor/frontils";
 import { runAgentWithEvents } from "agents/agent-runner";
 import { masterAgent } from "agents/master-agent/master-agent";
 import type { AppContext } from "context";

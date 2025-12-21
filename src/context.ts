@@ -1,5 +1,5 @@
 import type { EventEmitter } from "@elumixor/frontils";
-import type { Context } from "grammy";
+import type { Context, Message } from "grammy";
 import type { ExecutionEvent } from "./events/event-types";
 
 /**
@@ -24,6 +24,9 @@ export interface AppContext {
 
   /** The user's message text */
   readonly userMessage: string;
+
+  /** Message being replied to (if this is a reply) */
+  readonly repliedToMessage?: Message;
 
   /** Event emitter for tracking agent and tool execution */
   readonly events: EventEmitter<ExecutionEvent>;
