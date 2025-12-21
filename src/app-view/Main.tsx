@@ -1,7 +1,8 @@
 import { Dots } from "@components/Dots";
 import { JobStatus } from "@components/JobStatus";
-import { run, withTrace } from "@openai/agents";
+import { withTrace } from "@openai/agents";
 import { useJob } from "@providers/JobProvider";
+import { runAgentWithEvents } from "agents/agent-runner";
 import { masterAgent } from "agents/master-agent/master-agent";
 import { runWithContext } from "context-provider";
 import { Message } from "io/output";
@@ -35,7 +36,7 @@ export function Main() {
           await withTrace(
             await job.summarizedName,
             async () => {
-              const stream = await run(masterAgent, job.userMessage, {
+              const stream = await runAgentWithEvents(masterAgent, job.userMessage, {
                 stream: true,
               });
 

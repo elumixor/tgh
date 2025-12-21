@@ -1,11 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import { random } from "@elumixor/frontils";
-import { run } from "@openai/agents";
+import { EventEmitter, random } from "@elumixor/frontils";
+import { runAgentWithEvents } from "agents/agent-runner";
 import { masterAgent } from "agents/master-agent/master-agent";
 import type { AppContext } from "context";
 import { runWithContext } from "context-provider";
+import type { ExecutionEvent } from "events/event-types";
 import type { Context } from "grammy";
 import { parseArgs } from "utils/argparser";
 
@@ -29,6 +30,13 @@ const saveHistory = (rl: readline.Interface) => {
 const processMessage = async (message: string): Promise<void> => {
   console.log();
 
+  const events = new EventEmitter<ExecutionEvent>();
+
+  // Subscribe to events for CLI logging
+  events.subscribe((event: ExecutionEvent) => {
+    console.log(`[Event: ${event.type}]`, event);
+  });
+
   // Create a minimal AppContext for CLI (no Telegram context available)
   const context: AppContext = {
     id: random.string(32).toLowerCase(),
@@ -37,6 +45,7 @@ const processMessage = async (message: string): Promise<void> => {
     messageId: 0,
     chatId: 0,
     userMessage: message,
+    events,
     onProgress: (event) => {
       console.log("[Progress]", event);
     },
@@ -45,7 +54,7 @@ const processMessage = async (message: string): Promise<void> => {
     },
   };
 
-  const result = await runWithContext(context, () => run(masterAgent, message));
+  const result = await runWithContext(context, () => runAgentWithEvents(masterAgent, message));
 
   console.log();
   console.log(result.finalOutput);

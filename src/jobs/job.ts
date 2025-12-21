@@ -1,11 +1,13 @@
-import { random } from "@elumixor/frontils";
+import { EventEmitter, random } from "@elumixor/frontils";
 import type { AppContext, FileData, ProgressEvent } from "context";
+import type { ExecutionEvent } from "events/event-types";
 import type { Context } from "grammy";
 import { summarizer } from "services/summarizer";
 
 export class Job {
   readonly id = random.string(32).toLowerCase();
   readonly summarizedName;
+  readonly events = new EventEmitter<ExecutionEvent>();
   done = false;
 
   constructor(
@@ -32,6 +34,7 @@ export class Job {
       messageId: this.messageId,
       chatId: this.chatId,
       userMessage: this.userMessage,
+      events: this.events,
       onProgress: options?.onProgress,
       onFile: options?.onFile,
     };

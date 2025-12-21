@@ -1,4 +1,6 @@
+import type { EventEmitter } from "@elumixor/frontils";
 import type { Context } from "grammy";
+import type { ExecutionEvent } from "./events/event-types";
 
 /**
  * Application context passed to tools and agents.
@@ -22,6 +24,9 @@ export interface AppContext {
 
   /** The user's message text */
   readonly userMessage: string;
+
+  /** Event emitter for tracking agent and tool execution */
+  readonly events: EventEmitter<ExecutionEvent>;
 
   /** Optional progress callback for long-running operations */
   onProgress?: (event: ProgressEvent) => void;
