@@ -1,4 +1,4 @@
-import { Agent } from "@openai/agents";
+import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
 import { models } from "models";
 import { z } from "zod";
 import { analyzeImageTool } from "./tools/analyze-image";
@@ -36,7 +36,7 @@ const ImageOutputSchema = z.object({
   summary: z.string(),
 });
 
-export const imageAgent = new Agent({
+export const imageAgent = new StreamingAgent<AppContext>({
   name: "image_agent",
   model: models.fast,
   instructions: IMAGE_AGENT_PROMPT,

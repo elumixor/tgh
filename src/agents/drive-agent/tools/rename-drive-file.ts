@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
 import { z } from "zod";
 
-export const renameDriveFileTool = tool({
+export const renameDriveFileTool: ToolDefinition = {
   name: "rename_drive_file",
   description:
     "Rename a file or folder in Google Drive. Use this when the user wants to change the name of an existing file or folder. Requires the file ID and the new name.",
@@ -17,19 +17,12 @@ export const renameDriveFileTool = tool({
     logger.info({ fileId: file_id, newName: new_name }, "Renaming Drive file");
 
     const drive = getDriveClient();
-
-    const beforeMetadata = await drive.files.get({
-      fileId: file_id,
-      fields: "id, name",
-    });
-
+    const beforeMetadata = await drive.files.get({ fileId: file_id, fields: "id, name" });
     const oldName = beforeMetadata.data.name;
 
     const response = await drive.files.update({
       fileId: file_id,
-      requestBody: {
-        name: new_name,
-      },
+      requestBody: { name: new_name },
       fields: "id, name, webViewLink",
     });
 
@@ -44,4 +37,4 @@ export const renameDriveFileTool = tool({
       message: `File renamed from "${oldName}" to "${new_name}"`,
     };
   },
-});
+};

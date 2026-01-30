@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { notionClient } from "services/notion/notion-client";
 import { z } from "zod";
 
-export const searchGDDTool = tool({
+export const searchGDDTool: ToolDefinition = {
   name: "search_gdd",
   description:
     "Search the Game Design Document (GDD) stored in Notion for project documentation, game design specs, mechanics, features, character descriptions, and design decisions. The GDD is the authoritative source for all game-related information. Use this when the user asks about game design, characters, mechanics, systems, art style, story, or any project-specific information. Returns matching Notion pages with titles and URLs.",
@@ -17,7 +17,6 @@ export const searchGDDTool = tool({
   }),
   execute: async ({ query, limit }) => {
     const maxLimit = limit ?? 5;
-
     logger.info({ query, limit: maxLimit }, "GDD search request");
 
     const pages = await notionClient.searchPages(query, maxLimit);
@@ -32,4 +31,4 @@ export const searchGDDTool = tool({
       })),
     };
   },
-});
+};

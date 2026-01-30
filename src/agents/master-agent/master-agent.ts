@@ -1,8 +1,9 @@
-import { Agent, webSearchTool } from "@openai/agents";
-import { contextAgent } from "agents/context-agent/context-agent";
-import { driveAgent } from "agents/drive-agent/drive-agent";
-import { imageAgent } from "agents/image-agent/image-agent";
-import { memoryAgent } from "agents/memory-agent/memory-agent";
+import { webSearchTool } from "@openai/agents";
+import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
+import { contextAgent } from "@agents/context-agent/context-agent";
+import { driveAgent } from "@agents/drive-agent/drive-agent";
+import { imageAgent } from "@agents/image-agent/image-agent";
+import { memoryAgent } from "@agents/memory-agent/memory-agent";
 import { getAPIBalancesTool } from "tools/common/get-api-balances";
 import { z } from "zod";
 
@@ -43,22 +44,24 @@ Remember:
 - Context and project knowledge is **dynamic** and provided externally
 - All outputs must follow the structured JSON format strictly`;
 
-export const masterAgent = new Agent({
+export const masterAgent = new StreamingAgent<AppContext>({
   name: "master_agent",
   model: "gpt-5.1",
   instructions: MASTER_AGENT_SYSTEM_PROMPT,
   tools: [
     getAPIBalancesTool,
     webSearchTool(),
-    imageAgent.asTool({ toolDescription: "Generate, analyze images, or create 3D models from images" }),
-    contextAgent.asTool({
-      toolDescription:
+    { agent: imageAgent, description: "Generate, analyze images, or create 3D models from images" },
+    {
+      agent: contextAgent,
+      description:
         "Enrich requests with full context: resolve user intent from Telegram messages, retrieve relevant information from GDD/Notion, memories, Drive files, and web. Handles message references, voice transcription, entity resolution, and chat history.",
-    }),
-    memoryAgent.asTool({ toolDescription: "Store, retrieve, update, and delete project memories" }),
-    driveAgent.asTool({
-      toolDescription: "Manage Google Drive files and folders (search, upload, download, organize)",
-    }),
+    },
+    { agent: memoryAgent, description: "Store, retrieve, update, and delete project memories" },
+    {
+      agent: driveAgent,
+      description: "Manage Google Drive files and folders (search, upload, download, organize)",
+    },
   ],
   outputType: z.object({
     response: z.string(),

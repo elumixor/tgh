@@ -1,22 +1,13 @@
-import { Agent, webSearchTool } from "@openai/agents";
-import { driveAgent } from "agents/drive-agent/drive-agent";
-import { memoryAgent } from "agents/memory-agent/memory-agent";
+import { webSearchTool } from "@openai/agents";
+import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
+import { driveAgent } from "@agents/drive-agent/drive-agent";
+import { memoryAgent } from "@agents/memory-agent/memory-agent";
 import { models } from "models";
 import { z } from "zod";
 import { getGDDPageTool, searchGDDTool } from "./tools";
 import { getChatHistoryTool } from "./tools/get-chat-history";
 import { getChatInfoTool } from "./tools/get-chat-info";
 import { getMessageInfoTool } from "./tools/get-message-info";
-
-/**
- * Unified Context Agent - combines Intention and Information agents
- *
- * Responsibilities:
- * - Resolve user intent from Telegram messages
- * - Resolve Telegram-specific references (message IDs, chat context)
- * - Retrieve external context (GDD, memories, Drive, web)
- * - Extract entities and provide structured context
- */
 
 const CONTEXT_AGENT_PROMPT = `You are the Context Agent that enriches user requests with all necessary context.
 
@@ -72,27 +63,15 @@ Return comprehensive context including:
 - Do not perform generation - only gather and structure context
 - Return actionable, structured information for downstream agents`;
 
-/**
- * Unified output schema combining Intention and Information outputs
- */
 const ContextOutputSchema = z.object({
-  // Intent resolution (from Intention Agent)
   clarified_intent: z.string().describe("Clear statement of what the user wants to do"),
   confidence: z.enum(["high", "medium", "low"]).describe("Confidence in understanding user intent"),
   needs_user_clarification: z.boolean().describe("Whether user input is needed to proceed"),
 
-  // Telegram references (from Intention Agent)
   referenced_messages: z
-    .array(
-      z.object({
-        id: z.number(),
-        link: z.string(),
-        snippet: z.string(),
-      }),
-    )
+    .array(z.object({ id: z.number(), link: z.string(), snippet: z.string() }))
     .describe("Telegram messages referenced in the request"),
 
-  // Entity resolution (from Information Agent)
   entities: z
     .object({
       characters: z.array(z.string()),
@@ -101,7 +80,6 @@ const ContextOutputSchema = z.object({
     })
     .describe("Entities (characters, styles, objects) mentioned in the request"),
 
-  // External references (from Information Agent)
   references: z
     .object({
       GDD_pages: z.array(z.string()).describe("Relevant GDD/Notion page URLs"),
@@ -111,45 +89,30 @@ const ContextOutputSchema = z.object({
     })
     .describe("External references from project sources"),
 
-  // Context analysis (from Information Agent)
   assumptions: z.array(z.string()).describe("Assumptions made during context gathering"),
   uncertainties: z.array(z.string()).describe("Things that are unclear or need verification"),
 });
 
-/**
- * Context Agent - unified agent for all context enrichment
- *
- * Combines the responsibilities of:
- * - Intention Agent: Telegram-specific intent resolution
- * - Information Agent: External context retrieval
- */
-export const contextAgent = new Agent({
+export const contextAgent = new StreamingAgent<AppContext>({
   name: "context_agent",
-  model: models.thinking, // Use thinking model for complex multi-source reasoning
+  model: models.thinking,
   instructions: CONTEXT_AGENT_PROMPT,
   tools: [
-    // Telegram context tools (from Intention Agent)
     getMessageInfoTool,
     getChatInfoTool,
     getChatHistoryTool,
-
-    // Project documentation tools (from Information Agent)
     searchGDDTool,
     getGDDPageTool,
-
-    // Delegated sub-agents (from Information Agent)
-    memoryAgent.asTool({
-      toolName: "memory_agent",
-      toolDescription:
+    {
+      agent: memoryAgent,
+      description:
         "Search, add, or update project memories. Use this to store and retrieve persistent information about the project, characters, decisions, and context.",
-    }),
-    driveAgent.asTool({
-      toolName: "drive_agent",
-      toolDescription:
+    },
+    {
+      agent: driveAgent,
+      description:
         "Search, list, download, upload, or manage Google Drive files. Use this to access project assets, documents, and files stored in Drive.",
-    }),
-
-    // Web search fallback
+    },
     webSearchTool(),
   ],
   outputType: ContextOutputSchema,

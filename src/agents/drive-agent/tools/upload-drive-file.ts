@@ -1,70 +1,55 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import { tool } from "@openai/agents";
-import { tryGetContext } from "context-provider";
+import type { AppContext, ToolDefinition } from "@agents/streaming-agent";
 import type { Context } from "grammy";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
 import { detectMimeType } from "utils/files";
 import { z } from "zod";
 
-export const uploadDriveFileTool = tool({
+export const uploadDriveFileTool: ToolDefinition<z.ZodType, AppContext> = {
   name: "upload_drive_file",
   description:
     "Upload a file to Google Drive. Accepts multiple input types: Telegram message_id, local file path, URL, or base64 data. IMPORTANT: You must specify a folder_id - service accounts cannot upload to root.",
   parameters: z.object({
-    // Option 1: Telegram message
     message_id: z.number().optional().describe("Telegram message ID containing the file to upload."),
-    // Option 2: Local file path
     file_path: z
       .string()
       .optional()
       .describe("Local file path (e.g., from download_drive_file or generate_image temp files)."),
-    // Option 3: URL
     url: z.string().optional().describe("URL to download and upload to Drive."),
-    // Option 4: Base64 data
     base64_data: z.string().optional().describe("Base64-encoded file data (use with mime_type)."),
     mime_type: z
       .string()
       .optional()
       .describe("MIME type for base64 data (e.g., 'image/png'). Required when using base64_data."),
-    // Common parameters
     folder_id: z
       .string()
       .describe("Destination folder ID. REQUIRED. Get from list_drive_files or create with create_drive_folder."),
     file_name: z.string().optional().describe("Custom filename for Drive. If not provided, inferred from source."),
   }),
-  execute: async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }) => {
+  execute: async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }, context) => {
     let buffer: Buffer;
     let inferredFileName: string;
     let mimeType: string;
 
-    // Option 1: Telegram message
     if (message_id) {
-      const context = tryGetContext();
       if (!context?.telegramContext) throw new Error("Telegram context not available for message upload");
-
       const result = await getFileFromTelegram(message_id, context.telegramContext);
       buffer = result.buffer;
       inferredFileName = result.fileName;
       mimeType = result.mimeType;
-    }
-    // Option 2: Local file path
-    else if (file_path) {
+    } else if (file_path) {
       buffer = await fs.readFile(file_path);
       inferredFileName = path.basename(file_path);
       mimeType = detectMimeType(file_path);
-    }
-    // Option 3: URL
-    else if (url) {
+    } else if (url) {
       const result = await getFileFromUrl(url);
       buffer = result.buffer;
       inferredFileName = result.fileName;
       mimeType = result.mimeType;
-    }
-    // Option 4: Base64 data
-    else if (base64_data) {
+    } else if (base64_data) {
       buffer = Buffer.from(base64_data, "base64");
       inferredFileName = "upload";
       mimeType = mime_type ?? "application/octet-stream";
@@ -78,19 +63,12 @@ export const uploadDriveFileTool = tool({
 
     const drive = getDriveClient();
     const response = await drive.files.create({
-      requestBody: {
-        name: finalFileName,
-        parents: [folder_id],
-      },
-      media: {
-        mimeType,
-        body: Readable.from(buffer),
-      },
+      requestBody: { name: finalFileName, parents: [folder_id] },
+      media: { mimeType, body: Readable.from(buffer) },
       fields: "id, name, webViewLink",
     });
 
     const uploadedFile = response.data;
-
     logger.info({ fileId: uploadedFile.id, fileName: uploadedFile.name }, "File uploaded to Drive");
 
     return {
@@ -100,7 +78,7 @@ export const uploadDriveFileTool = tool({
       message: `File "${finalFileName}" uploaded successfully`,
     };
   },
-});
+};
 
 async function getFileFromUrl(url: string): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
   const response = await fetch(url);
@@ -108,12 +86,8 @@ async function getFileFromUrl(url: string): Promise<{ buffer: Buffer; fileName: 
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-
-  // Try to extract filename from URL
   const urlPath = new URL(url).pathname;
   const fileName = path.basename(urlPath) || "download";
-
-  // Get mimeType from response or infer from filename
   let mimeType = response.headers.get("content-type") ?? "application/octet-stream";
   if (mimeType === "application/octet-stream") mimeType = detectMimeType(fileName);
 
@@ -133,13 +107,11 @@ async function getFileFromTelegram(
   let fileName: string | undefined;
   let mimeType = "application/octet-stream";
 
-  // Check for different file types
   if (message.document) {
     fileId = message.document.file_id;
     fileName = message.document.file_name;
     mimeType = message.document.mime_type ?? "application/octet-stream";
   } else if (message.photo && message.photo.length > 0) {
-    // Get highest quality photo
     const photo = message.photo[message.photo.length - 1];
     if (photo) {
       fileId = photo.file_id;
@@ -162,7 +134,6 @@ async function getFileFromTelegram(
 
   if (!fileId) throw new Error(`Message ${messageId} does not contain a file`);
 
-  // Download file
   const file = await telegramContext.api.getFile(fileId);
   const fileUrl = `https://api.telegram.org/file/bot${telegramContext.api.token}/${file.file_path}`;
   const response = await fetch(fileUrl);
@@ -172,14 +143,9 @@ async function getFileFromTelegram(
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Delete the forwarded message
   await telegramContext.api.deleteMessage(chatId, message.message_id);
 
   logger.info({ messageId, fileName, size: buffer.length, mimeType }, "Downloaded file from Telegram");
 
-  return {
-    buffer,
-    fileName: fileName ?? `file_${messageId}`,
-    mimeType,
-  };
+  return { buffer, fileName: fileName ?? `file_${messageId}`, mimeType };
 }

@@ -1,8 +1,8 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { searchMemories } from "services/memory/memory-store";
 import { z } from "zod";
 
-export const searchMemoriesTool = tool({
+export const searchMemoriesTool: ToolDefinition = {
   name: "search_memories",
   description: "Search for relevant memories using semantic similarity. Returns memories ranked by relevance.",
   parameters: z.object({
@@ -12,7 +12,6 @@ export const searchMemoriesTool = tool({
   execute: async ({ query, topK }) => {
     const limitedTopK = Math.min(Math.max(1, topK ?? 5), 10);
     const results = await searchMemories(query, limitedTopK);
-
     return {
       success: true,
       query,
@@ -24,4 +23,4 @@ export const searchMemoriesTool = tool({
       })),
     };
   },
-});
+};

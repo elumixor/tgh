@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { gramjsClient } from "services/telegram";
 import { z } from "zod";
 
-export const getMessageInfoTool = tool({
+export const getMessageInfoTool: ToolDefinition = {
   name: "get_message_info",
   description:
     "Get comprehensive information about a specific message: text, media (voice/photo/document), sender, date, reply relationships (replies to/from), and optionally transcribe voice messages. This is your primary tool for understanding message content and context.",
@@ -29,9 +29,7 @@ export const getMessageInfoTool = tool({
       includeMentions ? gramjsClient.getMessageMentions(message_id) : Promise.resolve(undefined),
     ]);
 
-    const result: Record<string, unknown> = {
-      ...messageInfo,
-    };
+    const result: Record<string, unknown> = { ...messageInfo };
 
     if (mentions) {
       result.replied_to = mentions.repliedTo;
@@ -39,30 +37,7 @@ export const getMessageInfoTool = tool({
     }
 
     if (transcribeVoice && messageInfo.voice) {
-      // Requires a Telegram bot context; temporarily disabled.
-      // if (context?.telegramContext) {
-      //   try {
-      //     const bot = context.telegramContext.api;
-      //     const msg = await bot.forwardMessage(env.ALLOWED_CHAT_ID, env.ALLOWED_CHAT_ID, message_id);
-      //     if (msg.voice) {
-      //       const fileLink = await bot.getFile(msg.voice.file_id);
-      //       const voiceUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-      //       const response = await fetch(voiceUrl);
-      //       const buffer = await response.arrayBuffer();
-      //       const file = new File([buffer], "voice.ogg", { type: "audio/ogg" });
-      //       const transcription = await openai.audio.transcriptions.create({ file, model: "whisper-1" });
-      //       await bot.deleteMessage(env.ALLOWED_CHAT_ID, msg.message_id);
-      //       result.voice_transcription = transcription.text;
-      //       logger.info({ messageId: message_id, transcriptionLength: transcription.text.length }, "Voice transcribed");
-      //     }
-      //   } catch (error) {
-      //     logger.error(
-      //       { messageId: message_id, error: error instanceof Error ? error.message : error },
-      //       "Voice transcription failed",
-      //     );
-      //     result.transcription_error = error instanceof Error ? error.message : "Unknown error";
-      //   }
-      // }
+      // Voice transcription temporarily disabled - requires Telegram bot context
     }
 
     logger.info(
@@ -76,4 +51,4 @@ export const getMessageInfoTool = tool({
     );
     return result;
   },
-});
+};

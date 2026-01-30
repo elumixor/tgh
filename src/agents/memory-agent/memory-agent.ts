@@ -1,4 +1,4 @@
-import { Agent } from "@openai/agents";
+import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
 import { models } from "models";
 import { z } from "zod";
 import { addMemoryTool } from "./tools/add-memory";
@@ -31,7 +31,7 @@ const MemoryOutputSchema = z.object({
   summary: z.string(),
 });
 
-export const memoryAgent = new Agent({
+export const memoryAgent = new StreamingAgent<AppContext>({
   name: "memory_agent",
   model: models.fast,
   instructions: MEMORY_AGENT_PROMPT,

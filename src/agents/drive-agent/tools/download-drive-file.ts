@@ -1,11 +1,11 @@
 import type { Readable } from "node:stream";
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
 import { saveTempFile } from "utils/files";
 import { z } from "zod";
 
-export const downloadDriveFileTool = tool({
+export const downloadDriveFileTool: ToolDefinition = {
   name: "download_drive_file",
   description:
     "Download a file from Google Drive to a local temp file. Returns the file path for further processing (upload to Drive, analyze, use as reference). The file will be automatically sent to the user via output handler.",
@@ -15,7 +15,6 @@ export const downloadDriveFileTool = tool({
       .describe("The ID of the file to download. Get this from list_drive_files or search_drive_files."),
   }),
   execute: async ({ file_id }) => {
-    // Validate file ID length - Google Drive IDs are typically 28-33 characters
     if (file_id.length < 20) {
       return {
         error: `Invalid file ID "${file_id}" - appears truncated (${file_id.length} chars). Google Drive IDs are 28-33 characters. Use search_drive_files to find the file first.`,
@@ -26,12 +25,8 @@ export const downloadDriveFileTool = tool({
 
     const drive = getDriveClient();
 
-    // Get file metadata
     const metadata = await drive.files
-      .get({
-        fileId: file_id,
-        fields: "id, name, mimeType, size",
-      })
+      .get({ fileId: file_id, fields: "id, name, mimeType, size" })
       .catch((error: unknown) => {
         const gaxiosError = error as { code?: number; message?: string };
         if (gaxiosError.code === 404) {
@@ -48,20 +43,14 @@ export const downloadDriveFileTool = tool({
 
     logger.info({ fileId: file_id, fileName, mimeType, fileSize }, "File metadata retrieved");
 
-    // Download file content
     const response = await drive.files.get({ fileId: file_id, alt: "media" }, { responseType: "stream" });
-
     const stream = response.data as unknown as Readable;
     const chunks: Buffer[] = [];
 
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
 
     const fileBuffer = Buffer.concat(chunks);
-
-    // Get extension from filename or mimeType
     const ext = getExtension(fileName, mimeType);
-
-    // Save to temp file
     const tempPath = await saveTempFile(fileBuffer, ext);
 
     logger.info({ fileId: file_id, fileName, tempPath, size: fileBuffer.length }, "File downloaded to temp");
@@ -73,7 +62,6 @@ export const downloadDriveFileTool = tool({
       mime_type: mimeType,
       size: fileBuffer.length,
       path: tempPath,
-      // Output handler will send this file to Telegram/console
       files: [
         {
           path: tempPath,
@@ -84,14 +72,12 @@ export const downloadDriveFileTool = tool({
       ],
     };
   },
-});
+};
 
 function getExtension(fileName: string, mimeType: string): string {
-  // Try to get extension from filename
   const dotIndex = fileName.lastIndexOf(".");
   if (dotIndex !== -1) return fileName.slice(dotIndex + 1);
 
-  // Fall back to mimeType mapping
   const mimeToExt: Record<string, string> = {
     "image/png": "png",
     "image/jpeg": "jpg",

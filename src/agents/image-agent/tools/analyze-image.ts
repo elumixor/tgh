@@ -1,8 +1,8 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { geminiClient } from "services/gemini/gemini";
 import { z } from "zod";
 
-export const analyzeImageTool = tool({
+export const analyzeImageTool: ToolDefinition = {
   name: "analyze_image",
   description:
     "Analyze one or more images using Gemini Nano Banana. The tool converts a user question into a structured visual-analysis prompt that guides accurate image understanding, reasoning, and description. Returns { texts: string[] }.",
@@ -105,4 +105,4 @@ Rules:
       ),
   }),
   execute: async ({ task, images }) => geminiClient.analyzeImage(task, images),
-});
+};

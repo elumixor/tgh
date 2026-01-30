@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { geminiClient } from "services/gemini/gemini";
 import { saveTempFile } from "utils";
 import { z } from "zod";
 
-export const generateImageTool = tool({
+export const generateImageTool: ToolDefinition = {
   name: "generate_image",
   description:
     "Generate NEW images or EDIT existing ones using Gemini Nano Banana. Supports creation, targeted edits, style transfer, and character consistency. The tool expects a well-structured narrative prompt and optional reference images. Returns { files: string[]; texts: string[] }.",
@@ -73,7 +73,7 @@ mid-battle, sword raised. Dramatic lighting, dynamic pose.
 Generate two variations. High resolution, cinematic framing."
 
 EDIT IMAGE:
-"Using Image 1 as the base, change the elf’s expression to anger and
+"Using Image 1 as the base, change the elf's expression to anger and
 adjust the pose to a more dynamic sword swing. Keep the face, body
 proportions, and overall art style consistent. Add warm golden-hour
 lighting and subtle motion blur."
@@ -103,12 +103,9 @@ Maximum: 14 images.
   }),
   execute: async ({ prompt, reference_images }) => {
     const { images, texts } = await geminiClient.generateImage(prompt, reference_images);
-
-    // Save base64 images to temp files for agent workflows
     const files = await Promise.all(
       images.map((base64, i) => saveTempFile(Buffer.from(base64, "base64"), `generated-${i + 1}.png`)),
     );
-
     return { files, texts };
   },
-});
+};

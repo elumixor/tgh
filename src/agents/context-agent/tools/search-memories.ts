@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { searchMemories } from "services/memory/memory-store";
 import { z } from "zod";
 
-export const searchMemoriesTool = tool({
+export const searchMemoriesTool: ToolDefinition = {
   name: "search_memories",
   description:
     "Search your agent memories using semantic similarity. Use when you need to recall past conversations, decisions, or information from previous interactions. Returns relevant memories ranked by similarity.",
@@ -18,7 +18,6 @@ export const searchMemoriesTool = tool({
   }),
   execute: async ({ query, topK }) => {
     const k = topK ?? 5;
-
     logger.info({ query, topK: k }, "Memory search request");
 
     const memories = await searchMemories(query, k);
@@ -34,4 +33,4 @@ export const searchMemoriesTool = tool({
       })),
     };
   },
-});
+};

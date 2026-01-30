@@ -1,13 +1,14 @@
 import { EventEmitter } from "@elumixor/event-emitter";
-import { Agent, run, tool, type RunStreamEvent, type Tool } from "@openai/agents";
+import { Agent, type RunStreamEvent, run, type Tool, tool } from "@openai/agents";
+import type { Context } from "grammy";
 import { z } from "zod";
+import { DeltaStream } from "./utils";
 
-// ============ Core Interfaces (matching Main.tsx) ============
-
-export interface DeltaStream {
-  started: EventEmitter<void>;
-  delta: EventEmitter<string>;
-  ended: EventEmitter<void>;
+export interface AppContext {
+  telegramContext?: Context;
+  chatId: number;
+  messageId: number;
+  userMessage: string;
 }
 
 export interface ToolCallData {
@@ -16,7 +17,6 @@ export interface ToolCallData {
   input: Record<string, unknown>;
   log: EventEmitter<string>;
   output: DeltaStream;
-  /** Flag set when output has ended - useful for late subscribers */
   outputEnded?: boolean;
 }
 
@@ -28,22 +28,11 @@ export interface AgentCallData {
   output: DeltaStream;
   log: EventEmitter<string>;
   call: EventEmitter<CallData>;
-  /** Flag set when output has ended - useful for late subscribers */
   outputEnded?: boolean;
 }
 
 export type CallData = ToolCallData | AgentCallData;
 
-/** Helper to create a DeltaStream with fresh EventEmitters */
-function createDeltaStream(): DeltaStream {
-  return {
-    started: new EventEmitter<void>(),
-    delta: new EventEmitter<string>(),
-    ended: new EventEmitter<void>(),
-  };
-}
-
-/** Tool definition for StreamingAgent - contains the execute function directly */
 export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TContext = unknown, TReturn = unknown> {
   name: string;
   description: string;
@@ -52,13 +41,24 @@ export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TContext 
   execute: (params: any, context: TContext) => TReturn | Promise<TReturn>;
 }
 
-// ============ StreamingAgent Class ============
+export interface NestedAgent<TContext = unknown> {
+  // biome-ignore lint/suspicious/noExplicitAny: Allow any output type for nested agents
+  agent: StreamingAgent<TContext, any>;
+  description: string;
+}
+
+export type ToolInput<TContext = unknown> =
+  | ToolDefinition<z.ZodType, TContext>
+  // biome-ignore lint/suspicious/noExplicitAny: Allow any output type for nested agents
+  | StreamingAgent<TContext, any>
+  | NestedAgent<TContext>
+  | Tool;
 
 export interface StreamingAgentOptions<TContext = unknown, TOutput = unknown> {
   name: string;
   model: string;
   instructions?: string;
-  tools?: (ToolDefinition<z.ZodType, TContext> | StreamingAgent<TContext>)[];
+  tools?: ToolInput<TContext>[];
   outputType?: z.ZodType<TOutput>;
   modelSettings?: {
     reasoning?: { effort?: "low" | "medium" | "high"; summary?: "auto" | "concise" | "detailed" };
@@ -67,84 +67,59 @@ export interface StreamingAgentOptions<TContext = unknown, TOutput = unknown> {
 }
 
 export class StreamingAgent<TContext = unknown, TOutput = unknown> {
-  readonly name: string;
-
-  // EventEmitters for this agent's own events
-  readonly reasoning = createDeltaStream();
-  readonly output = createDeltaStream();
+  readonly reasoning = new DeltaStream();
+  readonly output = new DeltaStream();
   readonly log = new EventEmitter<string>();
   readonly call = new EventEmitter<CallData>();
 
-  // Internal OpenAI Agent
-  private readonly agent: Agent;
-
-  // Track nested StreamingAgents by their name
-  private readonly nestedAgents = new Map<string, StreamingAgent<TContext>>();
-
-  // Current streaming mode
+  private readonly agent;
   private currentMode: "reasoning" | "output" | "tool" = "output";
-
-  // Current context (set during run)
   private _context: TContext | undefined;
 
-  // Tool definitions for context passing
-  private readonly toolDefinitions: ToolDefinition<z.ZodType, TContext>[] = [];
-
-  constructor(options: StreamingAgentOptions<TContext, TOutput>) {
-    this.name = options.name;
-
-    // Process tools - convert StreamingAgents to wrapped tools
-    const processedTools: Tool[] = [];
-
-    for (const toolOrAgent of options.tools ?? []) {
-      if (toolOrAgent instanceof StreamingAgent) {
-        // Store reference to nested StreamingAgent
-        this.nestedAgents.set(toolOrAgent.name, toolOrAgent);
-        // Create wrapped tool that emits AgentCallData
-        processedTools.push(this.wrapNestedAgent(toolOrAgent));
-      } else {
-        // Store tool definition for context passing
-        this.toolDefinitions.push(toolOrAgent);
-        // Wrap regular tool definition to emit ToolCallData
-        processedTools.push(this.wrapToolDefinition(toolOrAgent));
-      }
-    }
-
-    // Create the underlying OpenAI Agent
+  constructor({
+    name,
+    tools = [],
+    model,
+    instructions,
+    outputType,
+    modelSettings,
+  }: StreamingAgentOptions<TContext, TOutput>) {
     this.agent = new Agent({
-      name: options.name,
-      model: options.model,
-      instructions: options.instructions,
-      tools: processedTools,
-      outputType: options.outputType,
-      modelSettings: options.modelSettings,
+      name,
+      model,
+      instructions,
+      tools: tools.map((t) => this.wrapTool(t)),
+      outputType,
+      modelSettings,
     });
   }
 
-  /** Get current context (available during run) */
+  private wrapTool(t: ToolInput<TContext>): Tool {
+    if (t instanceof StreamingAgent) return this.wrapNestedAgent(t);
+    if ("agent" in t && t.agent instanceof StreamingAgent) return this.wrapNestedAgent(t.agent, t.description);
+    if ("execute" in t) return this.wrapToolDefinition(t as ToolDefinition<z.ZodType, TContext>);
+    return t as Tool;
+  }
+
   get context(): TContext | undefined {
     return this._context;
   }
 
-  /** Run the agent with streaming events */
-  async run(input: string, context?: TContext): Promise<TOutput> {
-    // Store context for tools to access
-    this._context = context;
+  get name() {
+    return this.agent.name;
+  }
 
-    // Reset state
+  async run(input: string, context?: TContext): Promise<TOutput> {
+    this._context = context;
     this.currentMode = "output";
 
     const streamResult = await run(this.agent, input, { stream: true });
-
-    for await (const event of streamResult) {
-      this.handleStreamEvent(event);
-    }
+    for await (const event of streamResult) this.handleStreamEvent(event);
 
     await streamResult.completed;
     return streamResult.finalOutput as TOutput;
   }
 
-  /** Convert this agent to a tool for use in another agent (returns OpenAI tool) */
   asTool(description: string): Tool {
     return this.agent.asTool({
       toolDescription: description,
@@ -152,16 +127,13 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
     });
   }
 
-  /** Handle raw OpenAI stream events */
   private handleStreamEvent(event: RunStreamEvent) {
     if (event.type !== "raw_model_stream_event" || event.data.type !== "model") return;
 
     const e = event.data.event as Record<string, unknown>;
 
-    // Handle delta events
     if (e.delta) {
       const delta = e.delta as string;
-
       switch (this.currentMode) {
         case "reasoning":
           this.reasoning.delta.emit(delta);
@@ -170,16 +142,13 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
           this.output.delta.emit(delta);
           break;
         case "tool":
-          // Tool deltas are argument streaming, not output - ignore for now
           break;
       }
       return;
     }
 
-    // Handle item added events
     if (e.type === "response.output_item.added") {
       const item = e.item as Record<string, unknown>;
-
       if (item.type === "reasoning") {
         this.currentMode = "reasoning";
         this.reasoning.started.emit();
@@ -192,50 +161,39 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
       return;
     }
 
-    // Handle item done events
     if (e.type === "response.output_item.done") {
       const item = e.item as Record<string, unknown>;
-
-      if (item.type === "reasoning") {
-        this.reasoning.ended.emit();
-      } else if (item.type === "message") {
-        this.output.ended.emit();
-      }
-
+      if (item.type === "reasoning") this.reasoning.ended.emit();
+      else if (item.type === "message") this.output.ended.emit();
       this.currentMode = "output";
       return;
     }
 
-    // Handle function call arguments done
     if (e.type === "response.function_call_arguments.done") {
       this.currentMode = "output";
     }
   }
 
-  /** Wrap a nested StreamingAgent as a tool that emits AgentCallData */
-  private wrapNestedAgent(nestedAgent: StreamingAgent<TContext>): Tool {
+  private wrapNestedAgent(nestedAgent: StreamingAgent<TContext>, description?: string): Tool {
     return tool({
       name: nestedAgent.name,
-      description: `Nested agent: ${nestedAgent.name}`,
+      description: description ?? `Nested agent: ${nestedAgent.name}`,
       parameters: z.object({
         input: z.string().describe("Input for the nested agent"),
       }),
       execute: async ({ input }) => {
-        // Create AgentCallData for this call
         const callData: AgentCallData = {
           type: "agent",
           name: nestedAgent.name,
           input,
-          reasoning: createDeltaStream(),
-          output: createDeltaStream(),
+          reasoning: new DeltaStream(),
+          output: new DeltaStream(),
           log: new EventEmitter<string>(),
           call: new EventEmitter<CallData>(),
         };
 
-        // Emit the call event to parent
         this.call.emit(callData);
 
-        // Wire up nested agent's events to the callData
         const subs = [
           nestedAgent.reasoning.started.subscribe(() => callData.reasoning.started.emit()),
           nestedAgent.reasoning.delta.subscribe((d) => callData.reasoning.delta.emit(d)),
@@ -251,49 +209,37 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
         ];
 
         try {
-          // Run the nested agent with parent's context
-          const result = await nestedAgent.run(input, this._context);
-          return result;
+          return await nestedAgent.run(input, this._context);
         } finally {
-          // Cleanup subscriptions
           for (const sub of subs) sub.unsubscribe();
         }
       },
     });
   }
 
-  /** Wrap a tool definition to emit ToolCallData */
   private wrapToolDefinition(def: ToolDefinition<z.ZodType, TContext>): Tool {
     return tool({
       name: def.name,
       description: def.description,
       parameters: def.parameters,
       execute: async (args) => {
-        // Create ToolCallData for this call
         const callData: ToolCallData = {
           type: "tool",
           name: def.name,
           input: args as Record<string, unknown>,
           log: new EventEmitter<string>(),
-          output: createDeltaStream(),
+          output: new DeltaStream(),
         };
 
-        // Emit the call event to parent
         this.call.emit(callData);
-
-        // Mark output started
         callData.output.started.emit();
 
         try {
-          // Execute the original tool with context
           const result = await def.execute(args, this._context as TContext);
-
-          // Emit the result as output delta
           const resultStr = typeof result === "string" ? result : JSON.stringify(result);
           callData.output.delta.emit(resultStr);
           callData.outputEnded = true;
           callData.output.ended.emit();
-
           return result;
         } catch (error) {
           callData.log.emit(`Error: ${error}`);

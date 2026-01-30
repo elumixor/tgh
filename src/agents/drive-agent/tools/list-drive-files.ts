@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { buildTree, loadChildren } from "services/google-drive/drive-tree";
 import { z } from "zod";
 
-export const listDriveFilesTool = tool({
+export const listDriveFilesTool: ToolDefinition = {
   name: "list_drive_files",
   description:
     "List files and folders in Google Drive. Returns detailed info including IDs, names, types, sizes. Use this to explore Drive folders or find files by browsing.",
@@ -19,7 +19,6 @@ export const listDriveFilesTool = tool({
     const pageSize = Math.min(page_size ?? 100, 1000);
     const includePaths = include_paths ?? false;
 
-    // Validate folder ID length - Google Drive IDs are typically 28-33 characters
     if (folder_id && folder_id.length < 20) {
       return {
         error: `Invalid folder ID "${folder_id}" - appears truncated (${folder_id.length} chars). Google Drive IDs are 28-33 characters. Use get_folder_id with the folder name instead.`,
@@ -30,7 +29,6 @@ export const listDriveFilesTool = tool({
 
     let parentPath: string | undefined;
     if (includePaths && folder_id) {
-      // Build tree to get path info
       const tree = await buildTree(undefined, { maxDepth: 4, includeFiles: false });
       parentPath = tree.pathMap.get(folder_id);
     }
@@ -57,10 +55,6 @@ export const listDriveFilesTool = tool({
 
     logger.info({ folderId: folder_id, fileCount: files.length }, "Drive files listed");
 
-    return {
-      folder_id: folder_id ?? "shared_root",
-      total_files: files.length,
-      files,
-    };
+    return { folder_id: folder_id ?? "shared_root", total_files: files.length, files };
   },
-});
+};

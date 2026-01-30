@@ -1,4 +1,4 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents";
 import { env } from "env";
 import { models } from "models";
 import { z } from "zod";
@@ -15,31 +15,15 @@ interface ServiceBalance {
 async function getMeshyBalance(): Promise<ServiceBalance> {
   try {
     const response = await fetch("https://api.meshy.ai/openapi/v1/balance", {
-      headers: {
-        Authorization: `Bearer ${env.MESHY_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${env.MESHY_API_KEY}` },
     });
 
-    if (!response.ok) {
-      return {
-        service: "Meshy",
-        status: "error",
-        error: `API error: ${response.status}`,
-      };
-    }
+    if (!response.ok) return { service: "Meshy", status: "error", error: `API error: ${response.status}` };
 
     const data = (await response.json()) as { balance: number };
-    return {
-      service: "Meshy",
-      status: "success",
-      credits: data.balance,
-    };
+    return { service: "Meshy", status: "success", credits: data.balance };
   } catch (error) {
-    return {
-      service: "Meshy",
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { service: "Meshy", status: "error", error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -47,15 +31,8 @@ async function getOpenAIAgentBalance(): Promise<ServiceBalance> {
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: models.fast,
-        max_tokens: 1,
-        messages: [{ role: "user", content: "test" }],
-      }),
+      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: models.fast, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
     });
 
     return {
@@ -64,11 +41,7 @@ async function getOpenAIAgentBalance(): Promise<ServiceBalance> {
       balance: response.ok ? "API key is valid (no public balance endpoint)" : `API error: ${response.status}`,
     };
   } catch (error) {
-    return {
-      service: "OpenAI (Agents)",
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { service: "OpenAI (Agents)", status: "error", error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -76,25 +49,11 @@ async function getGeminiBalance(): Promise<ServiceBalance> {
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${env.GEMINI_API_KEY}`);
 
-    if (!response.ok) {
-      return {
-        service: "Gemini",
-        status: "error",
-        error: `API error: ${response.status}`,
-      };
-    }
+    if (!response.ok) return { service: "Gemini", status: "error", error: `API error: ${response.status}` };
 
-    return {
-      service: "Gemini",
-      status: "success",
-      balance: "API key is valid (no balance endpoint available)",
-    };
+    return { service: "Gemini", status: "success", balance: "API key is valid (no balance endpoint available)" };
   } catch (error) {
-    return {
-      service: "Gemini",
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { service: "Gemini", status: "error", error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -102,51 +61,27 @@ async function getPerplexityBalance(): Promise<ServiceBalance> {
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.PERPLEXITY_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        messages: [{ role: "user", content: "hi" }],
-        max_tokens: 1,
-      }),
+      headers: { Authorization: `Bearer ${env.PERPLEXITY_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "sonar", messages: [{ role: "user", content: "hi" }], max_tokens: 1 }),
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      return {
-        service: "Perplexity",
-        status: "error",
-        error: `API error: ${response.status} - ${errorText}`,
-      };
+      return { service: "Perplexity", status: "error", error: `API error: ${response.status} - ${errorText}` };
     }
 
-    return {
-      service: "Perplexity",
-      status: "success",
-      balance: "API key is valid (no balance endpoint available)",
-    };
+    return { service: "Perplexity", status: "success", balance: "API key is valid (no balance endpoint available)" };
   } catch (error) {
-    return {
-      service: "Perplexity",
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { service: "Perplexity", status: "error", error: error instanceof Error ? error.message : String(error) };
   }
 }
 
-export const getAPIBalancesTool = tool({
+export const getAPIBalancesTool: ToolDefinition = {
   name: "get_api_balances",
   description: "Get balance and usage information for all configured API services (Meshy, OpenAI, Gemini, Perplexity)",
   parameters: z.object({}),
   execute: async () => {
-    const results = await Promise.all([
-      getMeshyBalance(),
-      getOpenAIAgentBalance(),
-      getGeminiBalance(),
-      getPerplexityBalance(),
-    ]);
+    const results = await Promise.all([getMeshyBalance(), getOpenAIAgentBalance(), getGeminiBalance(), getPerplexityBalance()]);
 
     return {
       balances: results,
@@ -161,4 +96,4 @@ export const getAPIBalancesTool = tool({
         .join("\n"),
     };
   },
-});
+};

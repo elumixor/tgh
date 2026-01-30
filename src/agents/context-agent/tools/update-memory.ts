@@ -1,9 +1,9 @@
-import { tool } from "@openai/agents";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import { logger } from "logger";
 import { updateMemory } from "services/memory/memory-store";
 import { z } from "zod";
 
-export const updateMemoryTool = tool({
+export const updateMemoryTool: ToolDefinition = {
   name: "update_memory",
   description:
     "Update an existing memory with new information. Use when you need to refine or correct a previously stored memory. The embedding will be recalculated automatically.",
@@ -15,12 +15,8 @@ export const updateMemoryTool = tool({
     logger.info({ memoryId, contentLength: newContent.length }, "Update memory request");
 
     const success = await updateMemory(memoryId, newContent);
-
     if (!success) throw new Error(`Memory not found: ${memoryId}`);
 
-    return {
-      memoryId,
-      message: "Memory updated successfully",
-    };
+    return { memoryId, message: "Memory updated successfully" };
   },
-});
+};
