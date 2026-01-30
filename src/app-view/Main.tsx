@@ -5,6 +5,7 @@ import { delay } from "@elumixor/frontils";
 import { useArray, usePromise } from "@hooks";
 import { useJob } from "@providers/JobProvider";
 import { Message } from "io/output";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 export function Main() {
@@ -15,7 +16,7 @@ export function Main() {
   const agentData = useMemo<AgentCallData>(
     () => ({
       type: "agent",
-      name: "DriveAgent",
+      name: "MasterAgent",
       input: "find concept art",
       reasoning: {
         started: new EventEmitter(),
@@ -122,7 +123,7 @@ export function Main() {
 
 /** Mock summarization - returns summary after 1.5s */
 async function mockSummarize(_name: string, _input: string, _steps: string[], output: string): Promise<string> {
-  await delay(1);
+  await delay(3);
   return `${output.slice(0, 30)}...`;
 }
 
@@ -160,12 +161,13 @@ interface ToolProps {
   data: CallData;
   root?: boolean;
   depth?: number;
+  isLast?: boolean; // Whether this is the last item at parent level
   onSummarized?: (summary: string) => void;
 }
 
 type Step = { type: "log"; message: string } | { type: "call"; data: CallData };
 
-function Tool({ data, root = false, depth = 0, onSummarized }: ToolProps) {
+function Tool({ data, root = false, depth = 0, isLast = true, onSummarized }: ToolProps) {
   const indent = "   ".repeat(depth);
   const parentIndent = depth > 0 ? "   ".repeat(depth - 1) : "";
   const [summary, setSummary] = useState<string>();
@@ -175,6 +177,19 @@ function Tool({ data, root = false, depth = 0, onSummarized }: ToolProps) {
   const [output, setOutput] = useState<string>();
   const steps = useArray<Step>();
   const [nestedDone, setNestedDone] = useState<Set<string>>(new Set());
+
+  // Determine what content exists for prefix calculation
+  const hasOutput = !!output;
+  const hasSteps = steps.length > 0;
+
+  // Prefix helpers
+  const reasoningIsLast = !hasSteps && (root || !hasOutput);
+  const getStepPrefix = (index: number) => {
+    const isLastStep = index === steps.length - 1;
+    if (root) return isLastStep ? "└" : "├"; // Root: output is separate, last step is └
+    return isLastStep && !hasOutput ? "└" : "├"; // Non-root: output is part of tree
+  };
+  const headerPrefix = isLast ? "└" : "├";
 
   const { name, input } = data;
   const inputStr = typeof input === "string" ? input : JSON.stringify(input);
@@ -235,62 +250,71 @@ function Tool({ data, root = false, depth = 0, onSummarized }: ToolProps) {
     }
   }, [root, output, allNestedDone, summary]);
 
+  // Prefix helpers
+  const reasoningPrefix = `${indent}${reasoningIsLast ? "└" : "├"} `;
+  const stepPrefix = (index: number) => `${indent}${getStepPrefix(index)} `;
+  const outputPrefix = root ? "" : `${indent}└ `;
+  const summaryPrefix = `${parentIndent}${headerPrefix} `;
+
+  // Helper for consistent line rendering
+  const Line = ({ children }: { children: ReactNode }) => (
+    <>
+      {children}
+      <br />
+    </>
+  );
+
   // Once summarized, show only the summary (never for root)
-  // Summary appears at parent's level
   if (!root && summary)
     return (
-      <p>
-        {parentIndent}└ {name}: <i>{summary}</i>
-      </p>
+      <Line>
+        {summaryPrefix}
+        {name}: <i>{summary}</i>
+      </Line>
     );
 
   return (
-    <div>
-      <p>
-        {root ? "" : `${parentIndent}└ `}
+    <>
+      <Line>
+        {root ? "" : summaryPrefix}
         <b>{name}</b>({inputStr})
-      </p>
-
-      {/* Reasoning (agents only) */}
+      </Line>
       {isReasoning && (
-        <p>
-          {indent}└ {reasoning} 💭
-        </p>
+        <Line>
+          {reasoningPrefix}
+          {reasoning} 💭
+        </Line>
       )}
       {!isReasoning && reasoningDurationSec !== undefined && (
-        <p>
-          {indent}└ 💭 ({reasoningDurationSec}s)
-        </p>
+        <Line>
+          {reasoningPrefix}💭 ({reasoningDurationSec}s)
+        </Line>
       )}
-
-      {/* Steps (logs and nested calls in order) */}
-      {steps.map((step) =>
+      {steps.map((step, index) =>
         step.type === "log" ? (
-          <p key={step.message}>
-            {indent}└ {step.message}
-          </p>
+          <Line key={step.message}>
+            {stepPrefix(index)}
+            {step.message}
+          </Line>
         ) : (
           <Tool
             key={step.data.name}
             depth={depth + 1}
             data={step.data}
+            isLast={index === steps.length - 1 && (root || !hasOutput)}
             onSummarized={() => setNestedDone((prev) => new Set(prev).add(step.data.name))}
           />
         ),
       )}
-
-      {/* Output */}
-      {output &&
-        (root ? (
-          <p>
-            <br />
+      {output && (
+        <>
+          {root && <br />}
+          <Line>
+            {outputPrefix}
             {output}
-          </p>
-        ) : (
-          <>
-            {indent}└→ {output}
-          </>
-        ))}
-    </div>
+          </Line>
+        </>
+      )}
+    </>
   );
 }
