@@ -1,11 +1,11 @@
-import "extensions";
+import type { AgentCallData } from "@agents";
 import { JobStatus } from "@components/JobStatus";
 import { Tool } from "@components/Tool";
-import { usePromise } from "@hooks";
+import { useEffectAsync, usePromise } from "@hooks";
 import { useJob } from "@providers/JobProvider";
-import type { AgentCallData } from "@agents";
+import { LinkPreviewProvider } from "@providers/LinkPreviewProvider";
 import { Message } from "io/output";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { masterAgent } from "./mock";
 
 export function Main() {
@@ -25,19 +25,19 @@ export function Main() {
     [],
   );
 
-  useEffect(() => {
-    void (async () => {
-      await masterAgent.run("Use MathAgent to add 5 and 7", { job });
-      await summarized;
-      job.done = true;
-    })();
+  useEffectAsync(async () => {
+    await masterAgent.run("Use MathAgent to add 5 and 7", { job });
+    await summarized;
+    job.done = true;
   }, []);
 
   return (
-    <Message repliesTo={job.messageId}>
-      <Tool data={agentData} root onSummarized={onSummarized} />
-      <br />
-      <JobStatus />
-    </Message>
+    <LinkPreviewProvider>
+      <Message repliesTo={job.messageId}>
+        <Tool data={agentData} root onSummarized={onSummarized} />
+        <br />
+        <JobStatus />
+      </Message>
+    </LinkPreviewProvider>
   );
 }

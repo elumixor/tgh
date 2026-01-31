@@ -18,6 +18,7 @@ export interface ToolCallData {
   log: EventEmitter<string>;
   output: DeltaStream;
   outputEnded?: boolean;
+  outputValue?: string;
 }
 
 export interface AgentCallData {
@@ -237,6 +238,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
         try {
           const result = await def.execute(args, this._context as TContext);
           const resultStr = typeof result === "string" ? result : JSON.stringify(result);
+          callData.outputValue = resultStr;
           callData.output.delta.emit(resultStr);
           callData.outputEnded = true;
           callData.output.ended.emit();

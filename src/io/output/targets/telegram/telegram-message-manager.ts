@@ -1,7 +1,29 @@
 import type { Context } from "grammy";
+import type { LinkPreviewOptions as TelegramLinkPreviewOptions } from "grammy/types";
+import type { ElementNode, LinkPreviewOptions } from "io/output/core";
 import { splitMessage } from "services/telegram";
-import type { ElementNode } from "../../core";
 import { serializeTelegram } from "./telegram-serializer";
+
+const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
+
+function extractUrls(text: string): string[] {
+  return text.match(URL_REGEX) ?? [];
+}
+
+function getLinkPreviewOptions(text: string, options?: LinkPreviewOptions): TelegramLinkPreviewOptions {
+  if (!options) return { is_disabled: true };
+
+  const { ignored, previewUrl } = options;
+
+  if (previewUrl && !ignored.has(previewUrl)) return { url: previewUrl };
+
+  const urls = extractUrls(text);
+  const firstNonIgnored = urls.find((url) => !ignored.has(url));
+
+  if (firstNonIgnored) return { url: firstNonIgnored };
+
+  return { is_disabled: true };
+}
 
 export class TelegramMessageManager {
   private messageIds: number[] = [];
@@ -25,6 +47,7 @@ export class TelegramMessageManager {
 
     const chatId = this.chatId;
     const threadId = this.ctx.message?.message_thread_id;
+    const linkPreview = node.props.linkPreview as LinkPreviewOptions | undefined;
 
     const chunks = splitMessage(html);
     const newMessageIds: number[] = [];
@@ -33,10 +56,15 @@ export class TelegramMessageManager {
     for (const [i, chunk] of chunks.entries()) {
       if (!chunk) continue;
 
+      const linkPreviewOptions = getLinkPreviewOptions(chunk.text, linkPreview);
       const existingMsgId = this.messageIds[i];
+
       if (existingMsgId !== undefined) {
         if (chunk.text !== this.lastSentChunks[i]) {
-          await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, { parse_mode: "HTML" });
+          await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, {
+            parse_mode: "HTML",
+            link_preview_options: linkPreviewOptions,
+          });
         }
         newMessageIds.push(existingMsgId);
       } else {
@@ -46,6 +74,7 @@ export class TelegramMessageManager {
           parse_mode: "HTML",
           message_thread_id: threadId,
           reply_parameters: replyTo ? { message_id: replyTo } : undefined,
+          link_preview_options: linkPreviewOptions,
         });
 
         newMessageIds.push(msg.message_id);

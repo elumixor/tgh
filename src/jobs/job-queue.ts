@@ -42,6 +42,7 @@ export class JobQueue {
       logger.error({ jobId, error }, "Job failed");
       await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
         reply_parameters: { message_id: job.messageId },
+        link_preview_options: { is_disabled: true },
       });
     } finally {
       this.processing = false;

@@ -1,7 +1,7 @@
 import type { CallData } from "@agents";
-import { delay } from "@elumixor/frontils";
-import { useArray } from "@hooks";
+import { useArray, useEffectAsync } from "@hooks";
 import { useEffect, useState } from "react";
+import { summarizer } from "services/summarizer";
 import { Line } from "./Line";
 import { Output } from "./Output";
 import { Reasoning } from "./Reasoning";
@@ -16,18 +16,13 @@ interface ToolProps {
   onSummarized?: (summary: string) => void;
 }
 
-async function mockSummarize(_name: string, _input: string, _steps: string[], output: string): Promise<string> {
-  await delay(1);
-  return `${output.slice(0, 30)}...`;
-}
-
 export function Tool({ data, root = false, depth = 0, isLast = true, onSummarized }: ToolProps) {
   const indent = "   ".repeat(depth);
   const parentIndent = depth > 0 ? "   ".repeat(depth - 1) : "";
   const [summary, setSummary] = useState<string>();
   const [reasoning, setReasoning] = useState<string>();
   const [isReasoning, setIsReasoning] = useState(false);
-  const [reasoningDurationSec, setReasoningDurationSec] = useState<number>();
+  const [reasoningDuration, setReasoningDuration] = useState<number>();
   const [output, setOutput] = useState<string>();
   const [outputEnded, setOutputEnded] = useState(false);
   const steps = useArray<Step>();
@@ -48,7 +43,10 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
   const inputStr = typeof input === "string" ? input : JSON.stringify(input);
 
   useEffect(() => {
-    if (data.outputEnded) setOutputEnded(true);
+    if (data.outputEnded) {
+      setOutputEnded(true);
+      if (data.type === "tool" && data.outputValue) setOutput(data.outputValue);
+    }
 
     const logSub = data.log.subscribe((msg) => steps.push({ type: "log", message: msg }));
     const outputDeltaSub = data.output.delta.subscribe((text) => setOutput((prev) => (prev ?? "") + text));
@@ -66,7 +64,7 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
         data.reasoning.delta.subscribe((text) => setReasoning((prev) => (prev ?? "") + text)),
         data.reasoning.ended.subscribe(() => {
           const duration = Math.round((Date.now() - reasoningStartTime) / 1000);
-          setReasoningDurationSec(duration);
+          setReasoningDuration(duration);
           setIsReasoning(false);
         }),
         data.call.subscribe((nested) => steps.push({ type: "call", data: nested })),
@@ -79,23 +77,16 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
   }, [data]);
 
   const nestedCalls = steps.items.filter((s) => s.type === "call");
-  const logs = steps.items.filter((s) => s.type === "log");
   const allNestedDone = nestedCalls.every((c) => nestedDone.has(c.data.name));
 
-  useEffect(() => {
+  useEffectAsync(async () => {
     if (!outputEnded || !allNestedDone || summary) return;
     if (root) {
       onSummarized?.(output ?? "");
     } else {
-      void mockSummarize(
-        name,
-        inputStr,
-        logs.map((l) => l.message),
-        output ?? "",
-      ).then((s) => {
-        setSummary(s);
-        onSummarized?.(s);
-      });
+      const s = await summarizer.summarizeTool(name, inputStr, output ?? "");
+      setSummary(s);
+      onSummarized?.(s);
     }
   }, [root, outputEnded, allNestedDone, summary]);
 
@@ -119,7 +110,7 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
         prefix={reasoningPrefix}
         reasoning={reasoning}
         isReasoning={isReasoning}
-        durationSec={reasoningDurationSec}
+        durationSec={reasoningDuration}
       />
       <Steps
         steps={steps.items}
