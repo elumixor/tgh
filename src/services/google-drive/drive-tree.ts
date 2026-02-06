@@ -152,60 +152,6 @@ export async function loadChildren(parentId: string | null, options?: TreeOption
 }
 
 /**
- * Format tree as ASCII art
- */
-export function formatTreeAscii(
-  tree: TreeResult,
-  options?: {
-    showIds?: boolean;
-    showSize?: boolean;
-    showModified?: boolean;
-    maxLines?: number;
-  },
-): string {
-  const showIds = options?.showIds ?? true;
-  const showSize = options?.showSize ?? false;
-  const maxLines = options?.maxLines ?? 200;
-  const lines: string[] = [];
-
-  function formatNode(node: TreeNode, prefix: string, isLast: boolean): void {
-    if (lines.length >= maxLines) return;
-
-    const connector = isLast ? "\u2514\u2500\u2500 " : "\u251c\u2500\u2500 ";
-    let line = prefix + connector + node.name;
-
-    if (node.isFolder) line += "/";
-
-    const meta: string[] = [];
-    if (showIds) meta.push(node.id.slice(0, 8));
-    if (showSize && node.size) meta.push(formatSize(node.size));
-    if (meta.length > 0) line += `  [${meta.join(", ")}]`;
-
-    lines.push(line);
-
-    if (node.children) {
-      const childPrefix = prefix + (isLast ? "    " : "\u2502   ");
-      for (let i = 0; i < node.children.length; i++) {
-        if (lines.length >= maxLines) {
-          lines.push(`${childPrefix}... (truncated)`);
-          return;
-        }
-        const child = node.children[i];
-        if (child) formatNode(child, childPrefix, i === node.children.length - 1);
-      }
-    }
-  }
-
-  for (let i = 0; i < tree.root.length; i++) {
-    if (lines.length >= maxLines) break;
-    const rootNode = tree.root[i];
-    if (rootNode) formatNode(rootNode, "", i === tree.root.length - 1);
-  }
-
-  return lines.join("\n");
-}
-
-/**
  * Get path for a file/folder ID from a built tree
  */
 export function getPathFromTree(tree: TreeResult, id: string): string | undefined {
@@ -237,11 +183,4 @@ function sortNodes(nodes: TreeNode[], foldersFirst: boolean): TreeNode[] {
     }
     return a.name.localeCompare(b.name);
   });
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
 }
