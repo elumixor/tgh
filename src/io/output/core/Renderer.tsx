@@ -34,7 +34,7 @@ export abstract class Renderer implements IRenderer {
   private isCommitting = false;
   private needsCommit = false;
 
-  constructor({ throttleMs = 500 }: RendererOptions = {}) {
+  constructor({ throttleMs = 800 }: RendererOptions = {}) {
     this.throttleMs = throttleMs;
   }
 

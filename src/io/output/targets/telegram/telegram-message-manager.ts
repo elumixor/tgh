@@ -1,6 +1,7 @@
 import type { Context } from "grammy";
 import type { LinkPreviewOptions as TelegramLinkPreviewOptions } from "grammy/types";
 import type { ElementNode, LinkPreviewOptions } from "io/output/core";
+import { logger } from "logger";
 import { splitMessage } from "services/telegram";
 import { serializeTelegram } from "./telegram-serializer";
 
@@ -61,10 +62,14 @@ export class TelegramMessageManager {
 
       if (existingMsgId !== undefined) {
         if (chunk.text !== this.lastSentChunks[i]) {
-          await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, {
-            parse_mode: "HTML",
-            link_preview_options: linkPreviewOptions,
-          });
+          try {
+            await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, {
+              parse_mode: "HTML",
+              link_preview_options: linkPreviewOptions,
+            });
+          } catch (error) {
+            logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to edit message");
+          }
         }
         newMessageIds.push(existingMsgId);
       } else {

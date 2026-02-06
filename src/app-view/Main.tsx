@@ -40,12 +40,14 @@ export function Main() {
     const content = messages.map((msg) => msg.toXml()).join("\n");
     setInput(content);
 
+    const startTime = Date.now();
     try {
       await masterAgent.run(content, job);
     } catch (error) {
       logger.error({ error: error instanceof Error ? error.message : error }, "Agent run failed");
     }
 
+    job.thinkingDuration = (Date.now() - startTime) / 1000;
     job.state = "summarizing";
 
     try {

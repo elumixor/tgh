@@ -1,7 +1,6 @@
 import { useLinkPreview } from "@providers";
 import { useJob } from "app-view/providers/JobProvider";
 import { useEffect } from "react";
-import { Dots } from "./Dots";
 
 export function JobStatus() {
   const job = useJob();
@@ -12,20 +11,8 @@ export function JobStatus() {
     ignoreUrl(link);
   }, [link]);
 
-  const status =
-    job.state === "done" ? (
-      "Done"
-    ) : job.state === "summarizing" ? (
-      <>
-        Summarizing
-        <Dots />
-      </>
-    ) : (
-      <>
-        Running
-        <Dots />
-      </>
-    );
+  const duration = job.thinkingDuration?.toFixed(2);
+  const status = job.state === "done" ? "✅" : job.state === "summarizing" ? `📝 ${duration}s` : "⚡";
 
   return (
     <p>

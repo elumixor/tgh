@@ -11,6 +11,7 @@ export class Job {
   /** GramJS chat ID for group chat */
   readonly groupChatId: number = env.GROUP_CHAT_ID;
   state: JobState = "running";
+  thinkingDuration?: number;
 
   constructor(
     readonly telegramContext: Context,
