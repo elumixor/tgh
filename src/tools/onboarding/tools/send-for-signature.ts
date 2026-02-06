@@ -1,7 +1,10 @@
 import { defineTool } from "@agentic/streaming-agent";
-import { digiSignerClient } from "services/digisigner/digisigner-client";
+import { DigiSigner } from "@elumixor/digisigner";
+import { env } from "env";
 import { SignatureBoxExtractor } from "services/signature-placement";
 import { z } from "zod";
+
+const digiSigner = new DigiSigner(env.DIGISIGNER_API_KEY);
 
 export const sendForSignatureTool = defineTool(
   "SendForSignature",
@@ -19,7 +22,7 @@ export const sendForSignatureTool = defineTool(
 
     const extractor = new SignatureBoxExtractor(buffer);
     const signatureBox = await extractor.getBox(name, email);
-    const uploadResult = await digiSignerClient.uploadDocument(buffer, filename);
+    const uploadResult = await digiSigner.uploadDocument(buffer, filename);
 
     const signers = [{ email, name }];
     const fields = [signatureBox].map((box) => ({
@@ -33,7 +36,7 @@ export const sendForSignatureTool = defineTool(
       required: true,
     }));
 
-    const signatureResult = await digiSignerClient.sendSignatureRequest({
+    const signatureResult = await digiSigner.sendSignatureRequest({
       documentId: uploadResult.document_id,
       signers,
       fields,
