@@ -6,9 +6,10 @@
 export function markdownToTelegramHtml(markdown: string): string {
   let html = markdown;
 
-  // Store code blocks with placeholders to prevent formatting inside them
+  // Store protected regions with placeholders to prevent formatting inside them
   const codeBlocks: string[] = [];
   const inlineCodes: string[] = [];
+  const links: string[] = [];
 
   // Extract code blocks first (before any other processing)
   html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (_match, _lang, code) => {
@@ -21,6 +22,20 @@ export function markdownToTelegramHtml(markdown: string): string {
   html = html.replace(/`([^`]+)`/g, (_match, code) => {
     const placeholder = `\x00INLINECODE${inlineCodes.length}\x00`;
     inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
+    return placeholder;
+  });
+
+  // Extract markdown links [text](url) — protect URLs from underscore formatting
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match) => {
+    const placeholder = `\x00LINK${links.length}\x00`;
+    links.push(match);
+    return placeholder;
+  });
+
+  // Extract bare URLs — protect from underscore formatting
+  html = html.replace(/https?:\/\/[^\s<>)]+/g, (match) => {
+    const placeholder = `\x00LINK${links.length}\x00`;
+    links.push(match);
     return placeholder;
   });
 
@@ -40,9 +55,6 @@ export function markdownToTelegramHtml(markdown: string): string {
   html = html.replace(/\*(.+?)\*/g, "<i>$1</i>");
   html = html.replace(/_(.+?)_/g, "<i>$1</i>");
 
-  // Links: Convert [text](url) to <a href="url">text</a>
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
   // Strikethrough: Convert ~~text~~ to <s>
   html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
 
@@ -50,9 +62,16 @@ export function markdownToTelegramHtml(markdown: string): string {
   html = html.replace(/^[*-] (.+)$/gm, "• $1");
   html = html.replace(/^(\d+)\. (.+)$/gm, "$1. $2");
 
-  // Restore code blocks and inline code
+  // Restore protected regions
   for (const [i, block] of codeBlocks.entries()) html = html.replace(`\x00CODEBLOCK${i}\x00`, block);
   for (const [i, code] of inlineCodes.entries()) html = html.replace(`\x00INLINECODE${i}\x00`, code);
+
+  // Restore links — convert markdown links to <a> tags, bare URLs stay as-is
+  for (const [i, link] of links.entries()) {
+    const mdMatch = link.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    const restored = mdMatch ? `<a href="${mdMatch[2]}">${mdMatch[1]}</a>` : link;
+    html = html.replace(`\x00LINK${i}\x00`, restored);
+  }
 
   return html;
 }

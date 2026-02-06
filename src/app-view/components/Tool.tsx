@@ -1,7 +1,7 @@
-import type { CallData } from "@agentic";
 import { useArray, useEffectAsync } from "@hooks";
 import { useEffect, useState } from "react";
-import { summarizer } from "services/summarizer";
+import { summarizeTool } from "services/summarizer";
+import type { CallData } from "streaming-agent";
 import { Line } from "./Line";
 import { Output } from "./Output";
 import { Reasoning } from "./Reasoning";
@@ -84,7 +84,7 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
     if (root) {
       onSummarized?.(output ?? "");
     } else {
-      const s = await summarizer.summarizeTool(name, inputStr, output ?? "");
+      const s = await summarizeTool(name, inputStr, output ?? "");
       setSummary(s);
       onSummarized?.(s);
     }

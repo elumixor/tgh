@@ -1,8 +1,8 @@
-import { StreamingAgent } from "@agentic/streaming-agent";
-import { driveAgent } from "tools/drive";
-import { notionAgent } from "tools/notion";
 import { env } from "env";
 import { models } from "models";
+import { StreamingAgent } from "streaming-agent";
+import { driveAgent } from "tools/drive";
+import { notionAgent } from "tools/notion";
 import { addToTelegramGroupTool, sendForSignatureTool } from "./tools";
 
 const ONBOARDING_AGENT_PROMPT = `
@@ -85,13 +85,13 @@ You coordinate the TGH team member onboarding process.
 `.trim();
 
 export const onboardingAgent = new StreamingAgent({
-    name: "onboarding_agent",
-    model: models.thinking,
-    instructions: ONBOARDING_AGENT_PROMPT,
-    tools: [
-        { agent: notionAgent, description: "Manage Notion databases (People, Roles, Sensitive Data)" },
-        { agent: driveAgent, description: "Manage Google Drive files and generate contracts" },
-        sendForSignatureTool,
-        addToTelegramGroupTool,
-    ],
+  name: "onboarding_agent",
+  model: models.thinking,
+  instructions: ONBOARDING_AGENT_PROMPT,
+  tools: [
+    { agent: notionAgent, description: "Manage Notion databases (People, Roles, Sensitive Data)" },
+    { agent: driveAgent, description: "Manage Google Drive files and generate contracts" },
+    sendForSignatureTool,
+    addToTelegramGroupTool,
+  ],
 });

@@ -1,7 +1,7 @@
-import { defineTool } from "@agentic/streaming-agent";
 import { DigiSigner } from "@elumixor/digisigner";
 import { env } from "env";
 import { SignatureBoxExtractor } from "services/signature-placement";
+import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
 const digiSigner = new DigiSigner(env.DIGISIGNER_API_KEY);
@@ -14,8 +14,8 @@ export const sendForSignatureTool = defineTool(
     filename: z.string().describe("The filename for the document"),
     email: z.email().describe("Signer's email address"),
     name: z.string().describe("Signer's full name"),
-    subject: z.string().optional().describe("Email subject line"),
-    message: z.string().optional().describe("Email message body"),
+    subject: z.string().nullable().describe("Email subject line"),
+    message: z.string().nullable().describe("Email message body"),
   }),
   async ({ pdf_base64, filename, email, name, subject, message }, _context) => {
     const buffer = Buffer.from(pdf_base64, "base64");

@@ -1,6 +1,5 @@
-import { StreamingAgent } from "@agentic/streaming-agent";
 import { models } from "models";
-import { z } from "zod";
+import { StreamingAgent } from "streaming-agent";
 import { analyzeImageTool } from "./tools/analyze-image";
 import { generate3DFromImageTool } from "./tools/generate-3d-from-image";
 import { generateImageTool } from "./tools/generate-image";
@@ -23,23 +22,9 @@ Parameter Inference:
 
 Focus on visual result, minimal explanation.`;
 
-const ImageOutputSchema = z.object({
-  operation: z.string(),
-  files: z.array(
-    z.object({
-      path: z.string(),
-      type: z.string(),
-      description: z.string().optional(),
-    }),
-  ),
-  analysis: z.string().optional(),
-  summary: z.string(),
-});
-
 export const imageAgent = new StreamingAgent({
   name: "image_agent",
   model: models.mini,
   instructions: IMAGE_AGENT_PROMPT,
   tools: [generateImageTool, analyzeImageTool, generate3DFromImageTool],
-  outputType: ImageOutputSchema,
 });

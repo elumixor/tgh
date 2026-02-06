@@ -1,5 +1,5 @@
 import { logger } from "logger";
-import { summarizer } from "services/summarizer";
+import { summarizeError } from "services/summarizer";
 import type { Job } from "./job";
 
 export class JobQueue {
@@ -35,12 +35,10 @@ export class JobQueue {
       await this.handler(job);
       logger.info({ jobId }, "Job completed");
     } catch (error) {
-      const userMessage = await summarizer.summarizeError(
-        error instanceof Error ? error : new Error(JSON.stringify(error)),
-      );
+      const userMessage = await summarizeError(error instanceof Error ? error : new Error(JSON.stringify(error)));
 
       logger.error({ jobId, error }, "Job failed");
-      await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
+      await job.telegramContext.api.sendMessage(job.currentChatId, userMessage, {
         reply_parameters: { message_id: job.messageId },
         link_preview_options: { is_disabled: true },
       });

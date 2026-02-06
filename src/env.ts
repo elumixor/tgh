@@ -4,7 +4,7 @@ const envSchema = z
   .object({
     TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
     ALLOWED_USER_ID: z.coerce.number(),
-    ALLOWED_CHAT_ID: z.coerce.number(),
+    GROUP_CHAT_ID: z.coerce.number(),
 
     BOT_MODE: z.enum(["polling", "webhook"]).default("polling"),
     PORT: z.coerce.number(),
@@ -34,8 +34,10 @@ const envSchema = z
     TELEGRAM_TEAM_GROUP_ID: z.coerce.number(),
     TELEGRAM_TEAM_INVITE_LINK: z.string().min(1, "TELEGRAM_TEAM_INVITE_LINK is required"),
 
-    // Google Drive
-    GOOGLE_DRIVE_CREDENTIALS: z.string().min(1, "GOOGLE_DRIVE_CREDENTIALS is required"),
+    // Google API (OAuth)
+    GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
+    GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
+    GOOGLE_REFRESH_TOKEN: z.string().min(1, "GOOGLE_REFRESH_TOKEN is required"),
     GOOGLE_DRIVE_NDA_TEMPLATE_ID: z.string().min(1, "GOOGLE_DRIVE_NDA_TEMPLATE_ID is required"),
     GOOGLE_DRIVE_AGREEMENTS_FOLDER_ID: z.string().min(1, "GOOGLE_DRIVE_AGREEMENTS_FOLDER_ID is required"),
 

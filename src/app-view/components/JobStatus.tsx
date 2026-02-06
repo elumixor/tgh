@@ -12,14 +12,20 @@ export function JobStatus() {
     ignoreUrl(link);
   }, [link]);
 
-  const status = job.done ? (
-    "Done"
-  ) : (
-    <>
-      Running
-      <Dots />
-    </>
-  );
+  const status =
+    job.state === "done" ? (
+      "Done"
+    ) : job.state === "summarizing" ? (
+      <>
+        Summarizing
+        <Dots />
+      </>
+    ) : (
+      <>
+        Running
+        <Dots />
+      </>
+    );
 
   return (
     <p>

@@ -1,31 +1,31 @@
 import "@elumixor/extensions";
 
+import { JobProvider, Main } from "app-view";
 import { env } from "env";
-import { webhookCallback } from "grammy";
+import { Bot, webhookCallback } from "grammy";
+import { TelegramRenderer } from "io/output";
+import { Job, JobQueue } from "jobs";
 import { logger } from "logger";
 import { memories } from "services/memories";
 import { gramjsClient } from "services/telegram";
-import { App } from "./app.tsx";
+import { isBotMentioned } from "utils";
+
+const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+const { id: botChatId, username: botUsername = "", first_name: botName } = await bot.api.getMe();
+logger.info({ username: botUsername, firstName: botName }, "Bot info set");
 
 // Initialize GramJS client
-try {
-  await gramjsClient.connect();
-} catch (error) {
-  logger.error({ error: error instanceof Error ? error.message : error }, "Failed to initialize GramJS");
-  process.exit(1);
-}
+await gramjsClient.connect();
 
 // Initialize memories (sync with Notion once on startup)
 await memories.initialize();
-
-const app = new App();
 
 // Notify about new version in production
 if (env.TELEGRAM_SESSION_LOCAL === undefined) {
   try {
     const packageJson = await Bun.file("./package.json").json();
     const version = packageJson.config?.version as string;
-    await app.bot.api.sendMessage(env.ALLOWED_CHAT_ID, `🚀 Bot updated to version ${version}`);
+    await bot.api.sendMessage(env.GROUP_CHAT_ID, `🚀 Bot updated to version ${version}`);
     logger.info({ version }, "Version notification sent");
   } catch (error) {
     logger.warn(
@@ -35,20 +35,49 @@ if (env.TELEGRAM_SESSION_LOCAL === undefined) {
   }
 }
 
+// Set up job queue with Telegram rendering
+const jobQueue = new JobQueue((job: Job) =>
+  new TelegramRenderer(job.telegramContext).render(
+    <JobProvider job={job}>
+      <Main />
+    </JobProvider>,
+  ),
+);
+
+// Main message handler
+bot.on("message", (ctx) => {
+  // Only allow messages from authorized user or allowed group that mentions the bot
+  if (ctx.chat?.type === "group" || ctx.chat?.type === "supergroup") {
+    if (ctx.chat?.id !== env.GROUP_CHAT_ID) return;
+    if (!isBotMentioned(ctx.message, botUsername)) return;
+  } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
+
+  const userMessage = ctx.message.text ?? ctx.message.caption;
+
+  logger.info({ userMessage }, "Received message");
+
+  if (!userMessage) return;
+
+  const chatType = ctx.chat.type === "private" ? "private" : "group";
+  const chatName =
+    ctx.chat.type === "private"
+      ? `${ctx.chat.first_name ?? ""} ${ctx.chat.last_name ?? ""}`.trim()
+      : "title" in ctx.chat
+        ? ctx.chat.title
+        : "Unknown";
+
+  jobQueue.enqueue(new Job(ctx, ctx.message.message_id, chatType, chatName, botChatId, botUsername, botName));
+});
+
 // Setup webhook handler if in webhook mode
-const handleWebhook =
-  env.BOT_MODE === "webhook"
-    ? webhookCallback(app.bot, "std/http", {
-        timeoutMilliseconds: 60_000, // 60 seconds to accommodate long-running agent tasks
-      })
-    : null;
+const handleWebhook = env.BOT_MODE === "webhook" ? webhookCallback(bot, "std/http") : null;
 
 if (env.BOT_MODE === "webhook") {
-  await app.bot.api.setWebhook(`${env.BASE_URL}/webhook`);
+  await bot.api.setWebhook(`${env.BASE_URL}/webhook`);
   logger.info({ webhookUrl: `${env.BASE_URL}/webhook` }, "Webhook configured");
 } else {
-  await app.bot.api.deleteWebhook();
-  app.bot.start();
+  await bot.api.deleteWebhook();
+  bot.start();
   logger.info("Bot started in polling mode");
 }
 

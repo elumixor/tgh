@@ -1,5 +1,5 @@
-import { defineTool } from "@agentic/streaming-agent";
 import { delay } from "@elumixor/frontils";
+import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
 export const waitTool = defineTool(

@@ -38,7 +38,7 @@ export class GramJSClient {
       await this.client.getMe();
 
       // Pre-fetch chat info for default chat
-      await this.prefetchChatInfo(env.ALLOWED_CHAT_ID);
+      await this.prefetchChatInfo(env.GROUP_CHAT_ID);
 
       this.initialized = true;
     } catch (error) {
@@ -49,7 +49,7 @@ export class GramJSClient {
 
   async getMessages({
     query,
-    chatId = env.ALLOWED_CHAT_ID,
+    chatId = env.GROUP_CHAT_ID,
     limit = GRAMJS_DEFAULT_MESSAGES_LIMIT,
     offset,
     order = "newest first",
@@ -109,7 +109,7 @@ export class GramJSClient {
     return order === "oldest first" ? messages.reverse() : messages;
   }
 
-  async getChatInfo(chatId: number = env.ALLOWED_CHAT_ID): Promise<{
+  async getChatInfo(chatId: number = env.GROUP_CHAT_ID): Promise<{
     title: string;
     participantCount: number;
     participants: { id: number; username?: string; firstName?: string; lastName?: string }[];

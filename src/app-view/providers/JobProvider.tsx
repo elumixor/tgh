@@ -1,11 +1,10 @@
 import { delay } from "@elumixor/frontils";
 import { useFinishRender } from "io/output";
-import type { Job } from "jobs/job";
-import { logger } from "logger";
+import type { Job, JobState } from "jobs/job";
 import { createContext, type ReactNode, useContext, useState } from "react";
 
 export interface JobContextValue extends Job {
-  done: boolean;
+  state: JobState;
 }
 
 const JobContext = createContext<JobContextValue | null>(null);
@@ -13,25 +12,20 @@ const JobContext = createContext<JobContextValue | null>(null);
 export function JobProvider({ job, children }: { job: Job; children: ReactNode }) {
   const finishRender = useFinishRender();
 
-  const [done, setDone] = useState(false);
+  const [state, setState] = useState<JobState>("running");
 
   const value: JobContextValue = {
     ...job,
-    get chatId() {
-      return job.chatId;
+    get currentChatId() {
+      return job.currentChatId;
     },
-    get done() {
-      return done;
+    get state() {
+      return state;
     },
-    set done(value) {
-      if (value && done) {
-        logger.warn("Job already completed, ignoring duplicate completion");
-        return;
-      }
+    set state(value) {
+      setState(value);
 
-      setDone(value);
-
-      if (value)
+      if (value === "done")
         // Delay finishing so that the UI can react to done state first
         void delay(0).then(finishRender);
     },

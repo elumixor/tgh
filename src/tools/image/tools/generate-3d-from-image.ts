@@ -1,7 +1,7 @@
-import type { ToolDefinition } from "@agentic/streaming-agent";
 import type { FileData } from "io/output";
 import { logger } from "logger";
 import { meshyClient } from "services/meshy/meshy";
+import type { ToolDefinition } from "streaming-agent";
 import { z } from "zod";
 
 export const generate3DFromImageTool: ToolDefinition = {

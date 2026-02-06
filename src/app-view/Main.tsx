@@ -1,13 +1,14 @@
-import type { AgentCallData } from "@agentic";
-import { masterAgent } from "@agentic";
 import { JobStatus, Tool } from "@components";
 import { random } from "@elumixor/frontils";
 import { useEffectAsync, usePromise } from "@hooks";
 import { useJob } from "@providers/JobProvider";
 import { LinkPreviewProvider } from "@providers/LinkPreviewProvider";
 import { Message } from "io/output";
+import { logger } from "logger";
+import { masterAgent } from "master-agent";
 import { useMemo, useState } from "react";
 import { gramjsClient } from "services/telegram";
+import type { AgentCallData } from "streaming-agent";
 
 export function Main() {
   const job = useJob();
@@ -31,7 +32,7 @@ export function Main() {
   useEffectAsync(async () => {
     // Get chat messages from the current chat
     const messages = await gramjsClient.getMessages({
-      chatId: job.chatId,
+      chatId: job.currentChatId,
       limit: 10,
       order: "oldest first",
     });
@@ -39,10 +40,21 @@ export function Main() {
     const content = messages.map((msg) => msg.toXml()).join("\n");
     setInput(content);
 
-    await masterAgent.run(content, job);
-    await summarized;
+    try {
+      await masterAgent.run(content, job);
+    } catch (error) {
+      logger.error({ error: error instanceof Error ? error.message : error }, "Agent run failed");
+    }
 
-    job.done = true;
+    job.state = "summarizing";
+
+    try {
+      await summarized;
+    } catch (error) {
+      logger.error({ error: error instanceof Error ? error.message : error }, "Summarization failed");
+    }
+
+    job.state = "done";
   }, []);
 
   return (

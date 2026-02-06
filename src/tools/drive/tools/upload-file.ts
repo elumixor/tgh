@@ -1,41 +1,31 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Readable } from "node:stream";
-import type { ToolDefinition } from "@agentic/streaming-agent";
 import type { Context } from "grammy";
 import { logger } from "logger";
-import { getDriveClient } from "services/google-drive/google-drive";
+import { google } from "services/google-api";
+import { defineTool } from "streaming-agent";
 import { detectMimeType } from "utils/files";
 import { z } from "zod";
 
-export const uploadDriveFileTool: ToolDefinition = {
-  name: "upload_drive_file",
-  description:
-    "Upload a file to Google Drive. Accepts multiple input types: Telegram message_id, local file path, URL, or base64 data. IMPORTANT: You must specify a folder_id - service accounts cannot upload to root.",
-  parameters: z.object({
-    message_id: z.number().optional().describe("Telegram message ID containing the file to upload."),
-    file_path: z
-      .string()
-      .optional()
-      .describe("Local file path (e.g., from download_drive_file or generate_image temp files)."),
-    url: z.string().optional().describe("URL to download and upload to Drive."),
-    base64_data: z.string().optional().describe("Base64-encoded file data (use with mime_type)."),
-    mime_type: z
-      .string()
-      .optional()
-      .describe("MIME type for base64 data (e.g., 'image/png'). Required when using base64_data."),
-    folder_id: z
-      .string()
-      .describe("Destination folder ID. REQUIRED. Get from list_drive_files or create with create_drive_folder."),
-    file_name: z.string().optional().describe("Custom filename for Drive. If not provided, inferred from source."),
+export const uploadDriveFileTool = defineTool(
+  "UploadDriveFile",
+  "Upload a file to Google Drive from Telegram message, local path, URL, or base64 data.",
+  z.object({
+    message_id: z.number().nullable().describe("Telegram message ID containing the file"),
+    file_path: z.string().nullable().describe("Local file path (e.g., from download or temp files)"),
+    url: z.string().nullable().describe("URL to download and upload to Drive"),
+    base64_data: z.string().nullable().describe("Base64-encoded file data (use with mime_type)"),
+    mime_type: z.string().nullable().describe("MIME type for base64 data (required with base64_data)"),
+    folder_id: z.string().describe("Destination folder ID (required)"),
+    file_name: z.string().nullable().describe("Custom filename (inferred from source if not provided)"),
   }),
-  execute: async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }, context) => {
+  async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }, context) => {
     let buffer: Buffer;
     let inferredFileName: string;
     let mimeType: string;
 
     if (message_id) {
-      if (!context?.telegramContext) throw new Error("Telegram context not available for message upload");
+      if (!context?.telegramContext) throw new Error("Telegram context not available");
       const result = await getFileFromTelegram(message_id, context.telegramContext);
       buffer = result.buffer;
       inferredFileName = result.fileName;
@@ -54,31 +44,14 @@ export const uploadDriveFileTool: ToolDefinition = {
       inferredFileName = "upload";
       mimeType = mime_type ?? "application/octet-stream";
     } else {
-      throw new Error("No file source provided. Use message_id, file_path, url, or base64_data.");
+      throw new Error("No file source provided");
     }
 
-    const finalFileName = file_name ?? inferredFileName;
+    const uploadedFile = await google.drive.upload(file_name ?? inferredFileName, buffer, mimeType, folder_id);
 
-    logger.info({ folderId: folder_id, fileName: finalFileName, size: buffer.length, mimeType }, "Uploading to Drive");
-
-    const drive = getDriveClient();
-    const response = await drive.files.create({
-      requestBody: { name: finalFileName, parents: [folder_id] },
-      media: { mimeType, body: Readable.from(buffer) },
-      fields: "id, name, webViewLink",
-    });
-
-    const uploadedFile = response.data;
-    logger.info({ fileId: uploadedFile.id, fileName: uploadedFile.name }, "File uploaded to Drive");
-
-    return {
-      file_id: uploadedFile.id,
-      file_name: uploadedFile.name,
-      web_view_link: uploadedFile.webViewLink,
-      message: `File "${finalFileName}" uploaded successfully`,
-    };
+    return uploadedFile.toXML();
   },
-};
+);
 
 async function getFileFromUrl(url: string): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
   const response = await fetch(url);

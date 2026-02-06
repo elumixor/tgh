@@ -82,6 +82,8 @@ export const myTool = createTool({
 2. **Don't couple with output** - Tools return data, never send to Telegram/console directly
 3. **File outputs** - Return `files: FileData[]` in result; `createTool()` auto-detects and routes via `context.onFile()`
 4. **Progress updates** - Use `context.onProgress?.()` for long-running operations
+5. **Never use `.optional()` for tool parameters** - Use `.nullable()` instead. `defineTool()` enforces this at the type level. Use `?? default` or `?? undefined` when passing nullable values to functions expecting `undefined`
+6. **Never use `z.record()` for tool parameters** - OpenAI rejects `propertyNames` in JSON Schema. Use `z.array(z.object({ key: z.string(), value: z.string() }))` instead and convert to a record in the execute function
 
 ### Agent Creation
 

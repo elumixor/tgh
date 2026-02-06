@@ -1,7 +1,7 @@
-import { defineTool } from "@agentic/streaming-agent";
 import { models } from "models";
 import OpenAI from "openai";
 import { memories } from "services/memories";
+import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
 const openai = new OpenAI();

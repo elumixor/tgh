@@ -3,68 +3,8 @@ import { random } from "@elumixor/frontils";
 import { Agent, type RunStreamEvent, run, type Tool, tool, withTrace } from "@openai/agents";
 import type { Job } from "jobs/job";
 import { z } from "zod";
-import { DeltaStream } from "./utils";
-
-export interface ToolCallData {
-  type: "tool";
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-  log: EventEmitter<string>;
-  output: DeltaStream;
-  outputEnded?: boolean;
-  outputValue?: string;
-}
-
-export interface AgentCallData {
-  type: "agent";
-  id: string;
-  name: string;
-  input: string;
-  reasoning: DeltaStream;
-  output: DeltaStream;
-  log: EventEmitter<string>;
-  call: EventEmitter<CallData>;
-  outputEnded?: boolean;
-}
-
-export type CallData = ToolCallData | AgentCallData;
-
-export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TReturn = unknown> {
-  name: string;
-  description: string;
-  parameters: TParams;
-  execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>;
-}
-
-export function defineTool<TParams extends z.ZodType, TReturn = unknown>(
-  name: string,
-  description: string,
-  parameters: TParams,
-  execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>,
-): ToolDefinition<TParams, TReturn> {
-  return { name, description, parameters, execute };
-}
-
-export interface NestedAgent {
-  agent: StreamingAgent;
-  description: string;
-}
-
-export type ToolInput = ToolDefinition | StreamingAgent | NestedAgent | Tool;
-
-export type InstructionsInput = string | ((context: Job) => string | Promise<string>);
-
-export interface StreamingAgentOptions {
-  name: string;
-  model: string;
-  instructions?: InstructionsInput;
-  tools?: ToolInput[];
-  modelSettings?: {
-    reasoning?: { effort?: "low" | "medium" | "high"; summary?: "auto" | "concise" | "detailed" };
-    text?: { verbosity?: "low" | "medium" | "high" };
-  };
-}
+import { DeltaStream } from "./delta-stream";
+import type { AgentCallData, CallData, StreamingAgentOptions, ToolCallData, ToolDefinition, ToolInput } from "./types";
 
 export class StreamingAgent {
   readonly reasoning = new DeltaStream();
@@ -77,7 +17,6 @@ export class StreamingAgent {
   private _context: Job | undefined;
 
   constructor({ name, tools = [], model, instructions, modelSettings }: StreamingAgentOptions) {
-    // Convert our instructions format to OpenAI's format
     const agentInstructions =
       typeof instructions === "function"
         ? (runContext: { context: Job }) => instructions(runContext.context)
@@ -107,17 +46,21 @@ export class StreamingAgent {
     this._context = context;
     this.currentMode = "output";
 
-    return await withTrace(
-      "TGH",
-      async () => {
-        const streamResult = await run(this.agent, input, { context, stream: true });
-        for await (const event of streamResult) this.handleStreamEvent(event);
+    try {
+      return await withTrace(
+        "TGH",
+        async () => {
+          const streamResult = await run(this.agent, input, { context, stream: true });
+          for await (const event of streamResult) this.handleStreamEvent(event);
 
-        await streamResult.completed;
-        return streamResult.finalOutput as string;
-      },
-      { traceId: `trace_${context.id}` },
-    );
+          await streamResult.completed;
+          return streamResult.finalOutput as string;
+        },
+        { traceId: `trace_${context.id}` },
+      );
+    } finally {
+      this.output.ended.emit();
+    }
   }
 
   asTool(description: string): Tool {
@@ -212,6 +155,10 @@ export class StreamingAgent {
         try {
           if (!this._context) throw new Error("No context available for nested agent");
           return await nestedAgent.run(input, this._context);
+        } catch (error) {
+          callData.log.emit(`Error: ${error}`);
+          if (!callData.outputEnded) callData.output.ended.emit();
+          throw error;
         } finally {
           for (const sub of subs) sub.unsubscribe();
         }

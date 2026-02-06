@@ -1,5 +1,5 @@
-import { defineTool } from "@agentic/streaming-agent";
 import { gramjsClient } from "services/telegram";
+import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
 export const getMessagesTool = defineTool(
@@ -33,15 +33,18 @@ export const getMessagesTool = defineTool(
         "Optional topic name to filter messages from (for forum chats only). Only returns messages from the specified topic.",
       ),
   }),
-  async ({ words: query, limit, beforeMessageId, chatType, beforeDate, afterDate, topicName }, context) => {
-    const isCurrentChatGroup = context.chatId === context.groupChatId;
+  async (
+    { words: query, limit, beforeMessageId, chatType, beforeDate, afterDate, topicName },
+    { currentChatId, botChatId, groupChatId },
+  ) => {
+    const isCurrentChatGroup = currentChatId === groupChatId;
     if (isCurrentChatGroup && chatType === "private")
       return "Error: Cannot read from the private chat when prompted from the group chat.";
 
-    const chatId = chatType === "private" ? context.privateChatId : context.groupChatId;
+    const targetChatId = chatType === "private" ? botChatId : groupChatId;
     let messages = await gramjsClient.getMessages({
       query: query ?? undefined,
-      chatId,
+      chatId: targetChatId,
       limit,
       offset: beforeMessageId ?? undefined,
       order: "oldest first",
@@ -50,9 +53,7 @@ export const getMessagesTool = defineTool(
     });
 
     // Filter by topic name if specified
-    if (topicName) {
-      messages = messages.filter((msg) => msg.topicName === topicName);
-    }
+    if (topicName) messages = messages.filter((msg) => msg.topicName === topicName);
 
     return messages.map((msg) => msg.toXml()).join("\n");
   },

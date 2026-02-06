@@ -12,7 +12,11 @@
       },
       "suspicious": {
         "noExplicitAny": "error",
-        "useAwait": "error"
+        "useAwait": "error",
+        "noEmptyBlockStatements": "error"
+      },
+      "complexity": {
+        "noUselessCatch": "error"
       },
       "style": {
         "useShorthandAssign": "error",

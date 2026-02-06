@@ -1,5 +1,5 @@
-import type { ToolDefinition } from "@agentic/streaming-agent";
 import { geminiClient } from "services/gemini/gemini";
+import type { ToolDefinition } from "streaming-agent";
 import { z } from "zod";
 
 export const analyzeImageTool: ToolDefinition = {

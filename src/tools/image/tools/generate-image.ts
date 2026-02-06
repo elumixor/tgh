@@ -1,5 +1,5 @@
-import type { ToolDefinition } from "@agentic/streaming-agent";
 import { geminiClient } from "services/gemini/gemini";
+import type { ToolDefinition } from "streaming-agent";
 import { saveTempFile } from "utils";
 import { z } from "zod";
 
@@ -82,7 +82,7 @@ lighting and subtle motion blur."
 
     reference_images: z
       .array(z.string())
-      .optional()
+      .nullable()
       .describe(
         `
 Paths or URLs to reference images.
@@ -102,7 +102,7 @@ Maximum: 14 images.
       ),
   }),
   execute: async ({ prompt, reference_images }) => {
-    const { images, texts } = await geminiClient.generateImage(prompt, reference_images);
+    const { images, texts } = await geminiClient.generateImage(prompt, reference_images ?? undefined);
     const files = await Promise.all(
       images.map((base64, i) => saveTempFile(Buffer.from(base64, "base64"), `generated-${i + 1}.png`)),
     );

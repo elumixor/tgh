@@ -1,4 +1,4 @@
-import { StreamingAgent } from "@agentic/streaming-agent";
+import { StreamingAgent } from "streaming-agent";
 import { waitTool } from "tools/core";
 import { createPageTool, editPageTool, getDatabaseInfoTool, getDatabasePagesTool, getPageTool } from "./tools";
 
@@ -56,8 +56,8 @@ Always use GetDatabaseInfo first to see exact property names before creating/upd
 `.trim();
 
 export const notionAgent = new StreamingAgent({
-    name: "notion_agent",
-    model: "gpt-5.1",
-    instructions: NOTION_AGENT_PROMPT,
-    tools: [getDatabaseInfoTool, getPageTool, getDatabasePagesTool, createPageTool, editPageTool, waitTool],
+  name: "notion_agent",
+  model: "gpt-5.1",
+  instructions: NOTION_AGENT_PROMPT,
+  tools: [getDatabaseInfoTool, getPageTool, getDatabasePagesTool, createPageTool, editPageTool, waitTool],
 });

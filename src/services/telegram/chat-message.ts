@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/style/useConsistentMemberAccessibility: Using public to declare mutable class fields */
-import type { Api } from "telegram/tl";
+import { Api } from "telegram/tl";
 
 export interface ChatAttachment {
   type: "photo" | "file" | "voice" | "video";
@@ -18,6 +18,35 @@ function formatTime(date: Date): string {
   return `${month} ${day}, ${hours}:${minutes}`;
 }
 
+function applyEntities(text: string, entities?: Api.TypeMessageEntity[]): string {
+  if (!entities || entities.length === 0) return text;
+
+  // Sort by offset descending so insertions don't shift later offsets
+  const sorted = [...entities].sort((a, b) => b.offset - a.offset);
+
+  let result = text;
+  for (const entity of sorted) {
+    const start = entity.offset;
+    const end = entity.offset + entity.length;
+    const inner = result.substring(start, end);
+
+    let replacement: string | undefined;
+    if (entity instanceof Api.MessageEntityBold) replacement = `**${inner}**`;
+    else if (entity instanceof Api.MessageEntityItalic) replacement = `*${inner}*`;
+    else if (entity instanceof Api.MessageEntityCode) replacement = `\`${inner}\``;
+    else if (entity instanceof Api.MessageEntityPre) {
+      const lang = entity.language ? entity.language : "";
+      replacement = `\`\`\`${lang}\n${inner}\n\`\`\``;
+    } else if (entity instanceof Api.MessageEntityTextUrl) replacement = `[${inner}](${entity.url})`;
+    else if (entity instanceof Api.MessageEntityStrike) replacement = `~~${inner}~~`;
+    else if (entity instanceof Api.MessageEntitySpoiler) replacement = `||${inner}||`;
+
+    if (replacement) result = result.substring(0, start) + replacement + result.substring(end);
+  }
+
+  return result;
+}
+
 export class ChatMessage {
   constructor(
     public id: number,
@@ -30,11 +59,7 @@ export class ChatMessage {
     public attachments?: ChatAttachment[],
   ) {}
 
-  static fromApiMessage(
-    msg: Api.Message,
-    chatTitle?: string,
-    topicsMap?: Map<number, string>,
-  ): ChatMessage {
+  static fromApiMessage(msg: Api.Message, chatTitle?: string, topicsMap?: Map<number, string>): ChatMessage {
     let userName: string | undefined;
     let fullName: string | undefined;
     const sender = msg.sender;
@@ -73,7 +98,7 @@ export class ChatMessage {
 
     return new ChatMessage(
       msg.id,
-      msg.text,
+      applyEntities(msg.message ?? "", msg.entities),
       new Date(msg.date * 1000),
       userName,
       fullName,
