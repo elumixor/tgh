@@ -16,7 +16,7 @@ export class StreamingAgent {
   private currentMode: "reasoning" | "output" | "tool" = "output";
   private _context: Job | undefined;
 
-  constructor({ name, tools = [], model, instructions, modelSettings }: StreamingAgentOptions) {
+  constructor({ name, tools = [], mcpServers = [], model, instructions, modelSettings }: StreamingAgentOptions) {
     const agentInstructions =
       typeof instructions === "function"
         ? (runContext: { context: Job }) => instructions(runContext.context)
@@ -27,6 +27,7 @@ export class StreamingAgent {
       model,
       instructions: agentInstructions,
       tools: tools.map((t) => this.wrapTool(t)),
+      mcpServers,
       modelSettings,
     });
   }

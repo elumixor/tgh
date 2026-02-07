@@ -1,5 +1,5 @@
 import type { EventEmitter } from "@elumixor/event-emitter";
-import type { Tool } from "@openai/agents";
+import type { MCPServer, Tool } from "@openai/agents";
 import type { Job } from "jobs/job";
 import type { z } from "zod";
 import type { DeltaStream } from "./delta-stream";
@@ -51,6 +51,7 @@ export interface StreamingAgentOptions {
   model: string;
   instructions?: InstructionsInput;
   tools?: ToolInput[];
+  mcpServers?: MCPServer[];
   modelSettings?: {
     reasoning?: { effort?: "low" | "medium" | "high"; summary?: "auto" | "concise" | "detailed" };
     text?: { verbosity?: "low" | "medium" | "high" };

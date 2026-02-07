@@ -8,17 +8,21 @@ import { Job, JobQueue } from "jobs";
 import { logger } from "logger";
 import { memories } from "services/memories";
 import { gramjsClient } from "services/telegram";
+import { notionMcpServer } from "tools/notion";
 import { isBotMentioned } from "utils";
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 const { id: botChatId, username: botUsername = "", first_name: botName } = await bot.api.getMe();
 logger.info({ username: botUsername, firstName: botName }, "Bot info set");
 
-// Initialize GramJS client
-await gramjsClient.connect();
-
-// Initialize memories (sync with Notion once on startup)
-await memories.initialize();
+await Promise.all([
+  // Initialize GramJS client
+  gramjsClient.connect(),
+  // Initialize memories (sync with Notion once on startup)
+  await memories.initialize(),
+  // Start Notion MCP server
+  notionMcpServer.connect(),
+]);
 
 // Notify about new version in production
 if (env.TELEGRAM_SESSION_LOCAL === undefined) {
@@ -105,6 +109,7 @@ if (env.BOT_MODE === "webhook") {
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "Shutting down...");
   try {
+    await notionMcpServer.close();
     await gramjsClient.disconnect();
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : String(error) }, "Error during shutdown");

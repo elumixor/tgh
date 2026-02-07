@@ -12,7 +12,7 @@ import { onboardingAgent } from "tools/onboarding";
 export const masterAgent = new StreamingAgent({
   name: "MasterAgent",
   model: models.thinking,
-  modelSettings: { reasoning: { effort: "low" } },
+  modelSettings: { reasoning: { effort: "medium" } },
   instructions: ({ chatType, chatName, botUsername, botName }) =>
     `
 You are ${botName} (${botUsername}), a Telegram bot assistant.
@@ -55,11 +55,11 @@ You need not rely on old messages to provide constant results. The system might 
     getMessagesTool,
     sendFileTool,
     updateMemoriesTool,
-    // {
-    //   agent: notionAgent,
-    //   description:
-    //     "Manage Notion pages and databases. Accepts a general instruction in a natural language with required ids/links/names.",
-    // },
+    {
+      agent: notionAgent,
+      description:
+        "Manages requests related to Notion. Accepts a general instruction in a natural language with required ids/links/names. Use it to delegate any Notion/notion related requests",
+    },
     {
       agent: driveAgent,
       description:

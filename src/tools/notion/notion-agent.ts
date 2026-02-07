@@ -1,6 +1,14 @@
+import { MCPServerStdio } from "@openai/agents";
+import { env } from "env";
 import { StreamingAgent } from "streaming-agent";
 import { waitTool } from "tools/core";
-import { createPageTool, editPageTool, getDatabaseInfoTool, getDatabasePagesTool, getPageTool } from "./tools";
+
+export const notionMcpServer = new MCPServerStdio({
+  command: "bunx",
+  args: ["@notionhq/notion-mcp-server"],
+  env: { NOTION_TOKEN: env.NOTION_API_KEY },
+  cacheToolsList: true,
+});
 
 const NOTION_AGENT_PROMPT = `
 You manage Notion databases and pages for TGH.
@@ -16,18 +24,18 @@ You manage Notion databases and pages for TGH.
 ## Workflows
 
 **Check if person exists:**
-1. Use GetDatabasePages with email_equals filter
+1. Use search-pages-and-data-sources or query-data-source with email filter
 2. If found, return existing page ID
 
 **Create person entry:**
-1. Use GetDatabaseInfo to verify property names
-2. Use CreatePage with required fields (Name, Email, Role relation)
+1. Use retrieve-a-data-source to verify property names
+2. Use create-a-page with required fields (Name, Email, Role relation)
 3. Use Wait (5-10 seconds) for automation to create Sensitive Data relation
-4. Use GetPage to verify the relation was created
+4. Use retrieve-a-page to verify the relation was created
 
 **Update Sensitive Data:**
-1. Get person's Sensitive Data relation ID from GetPage
-2. Use EditPage with the Sensitive Data page ID
+1. Get person's Sensitive Data relation ID from retrieve-a-page
+2. Use update-a-page with the Sensitive Data page ID
 3. Update fields: Passport, Salary, Schedule, Start Date, Telegram Username
 
 **Verify relations:**
@@ -41,23 +49,13 @@ You manage Notion databases and pages for TGH.
 - Return manual sharing instructions with page URLs
 - Specify access level: View for People/Roles/Hypocrisy, Edit for Tasks
 
-## Property Formats
-
-Use Notion API property format:
-- Title: \`{title: [{text: {content: "text"}}]}\`
-- Rich Text: \`{rich_text: [{text: {content: "text"}}]}\`
-- Email: \`{email: "user@example.com"}\`
-- Number: \`{number: 50}\`
-- Select: \`{select: {name: "Option"}}\`
-- Relation: \`{relation: [{id: "page_id"}]}\`
-- Date: \`{date: {start: "2025-01-01"}}\`
-
-Always use GetDatabaseInfo first to see exact property names before creating/updating.
+Always use retrieve-a-data-source first to see exact property names before creating/updating.
 `.trim();
 
 export const notionAgent = new StreamingAgent({
-  name: "notion_agent",
+  name: "NotionAgent",
   model: "gpt-5.1",
   instructions: NOTION_AGENT_PROMPT,
-  tools: [getDatabaseInfoTool, getPageTool, getDatabasePagesTool, createPageTool, editPageTool, waitTool],
+  tools: [waitTool],
+  mcpServers: [notionMcpServer],
 });
