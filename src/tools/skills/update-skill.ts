@@ -12,7 +12,7 @@ export const updateSkillTool = defineTool(
     newContent: z.string().nullable().describe("New markdown content, or null to keep current"),
   }),
   async ({ name, newName, newDescription, newContent }) => {
-    const skill = skills.getByName(name);
+    const skill = await skills.getByName(name);
     if (!skill) return { error: `Skill "${name}" not found` };
 
     await skills.update(skill.id, {

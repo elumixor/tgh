@@ -9,7 +9,7 @@ export const removeSkillTool = defineTool(
     name: z.string().describe("CamelCase name of the skill to remove"),
   }),
   async ({ name }) => {
-    const skill = skills.getByName(name);
+    const skill = await skills.getByName(name);
     if (!skill) return { error: `Skill "${name}" not found` };
 
     await skills.remove(skill.id);

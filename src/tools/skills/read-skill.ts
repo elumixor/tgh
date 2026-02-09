@@ -4,15 +4,13 @@ import { z } from "zod";
 
 export const readSkillTool = defineTool(
   "ReadSkill",
-  "Read the full content of a skill by its CamelCase name.",
+  "Read the full content of a skill by its name",
   z.object({
-    name: z.string().describe("CamelCase name of the skill to read"),
+    name: z.string().describe("Name of the skill to read"),
   }),
   async ({ name }) => {
-    const skill = skills.getByName(name);
+    const skill = await skills.getByName(name);
     if (!skill) return { error: `Skill "${name}" not found` };
-
-    const content = await skills.readContent(skill.id);
-    return { name: skill.name, description: skill.description, content };
+    return await skills.readContent(skill.id);
   },
 );

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import type { BlockObjectRequest, GetPageResponse } from "@notionhq/client/build/src/api-endpoints";
+import type { BlockObjectRequest } from "@notionhq/client/build/src/api-endpoints";
 import { env } from "env";
 import { logger } from "logger";
-import { notionClient } from "services/notion";
+import { notion } from "services/notion";
 
 const MEMORIES_FILE = "./cache/memories.md";
 const NOTION_PAGE_ID = env.NOTION_MEMORIES_PAGE_ID;
@@ -96,10 +96,8 @@ class Memories {
   /** Get the Notion page's last edited time */
   private async getNotionPageTime(): Promise<Date | null> {
     try {
-      const page = (await notionClient.pages.retrieve({ page_id: NOTION_PAGE_ID })) as GetPageResponse & {
-        last_edited_time?: string;
-      };
-      if ("last_edited_time" in page && page.last_edited_time) return new Date(page.last_edited_time);
+      const { lastEditedTime } = await notion.getPageMeta(NOTION_PAGE_ID);
+      if (lastEditedTime) return new Date(lastEditedTime);
       return null;
     } catch (error) {
       logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to get Notion page time");
@@ -107,65 +105,15 @@ class Memories {
     }
   }
 
-  /** Read content from Notion page and convert to markdown */
-  private async readFromNotion(): Promise<string> {
-    const blocks = await notionClient.blocks.children.list({
-      block_id: NOTION_PAGE_ID,
-      page_size: 100,
-    });
-
-    const lines: string[] = [];
-    for (const block of blocks.results) {
-      if (!("type" in block)) continue;
-
-      const blockType = block.type;
-      const blockData = block as Record<string, unknown>;
-      const typedBlock = blockData[blockType] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
-      const text = typedBlock?.rich_text?.map((t) => t.plain_text ?? "").join("") ?? "";
-
-      switch (blockType) {
-        case "heading_1":
-          lines.push(`# ${text}`);
-          break;
-        case "heading_2":
-          lines.push(`## ${text}`);
-          break;
-        case "heading_3":
-          lines.push(`### ${text}`);
-          break;
-        case "bulleted_list_item":
-          lines.push(`- ${text}`);
-          break;
-        case "paragraph":
-          lines.push(text);
-          break;
-      }
-    }
-
-    return lines.join("\n");
+  /** Read content from Notion page */
+  private readFromNotion(): Promise<string> {
+    return notion.getPageContents(NOTION_PAGE_ID);
   }
 
   /** Sync memories content to Notion page */
   private async syncToNotion(content: string): Promise<void> {
-    // First, delete all existing blocks in the page
-    const existingBlocks = await notionClient.blocks.children.list({
-      block_id: NOTION_PAGE_ID,
-      page_size: 100,
-    });
-
-    for (const block of existingBlocks.results) {
-      await notionClient.blocks.delete({ block_id: block.id });
-    }
-
-    // Convert markdown to Notion blocks
     const blocks = this.markdownToNotionBlocks(content);
-
-    if (blocks.length > 0) {
-      await notionClient.blocks.children.append({
-        block_id: NOTION_PAGE_ID,
-        children: blocks,
-      });
-    }
+    await notion.replacePageContents(NOTION_PAGE_ID, blocks);
   }
 
   /** Convert markdown content to Notion blocks */

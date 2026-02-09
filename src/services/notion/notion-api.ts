@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client";
+import type { BlockObjectRequest } from "@notionhq/client/build/src/api-endpoints";
 import { env } from "env";
 import { NotionDatabase } from "./notion-database";
 import { NotionPage } from "./notion-page";
@@ -11,6 +12,38 @@ export class NotionAPI {
 
   constructor(private apiKey: string) {
     this.client = new Client({ auth: apiKey });
+  }
+
+  async createPage(
+    databaseId: string,
+    properties: Record<string, unknown>,
+    blocks?: BlockObjectRequest[],
+  ): Promise<string> {
+    // biome-ignore lint: Notion SDK types are overly strict for dynamic property construction
+    const page = await this.client.pages.create({ parent: { database_id: databaseId }, properties } as any);
+    if (blocks?.length) await this.client.blocks.children.append({ block_id: page.id, children: blocks });
+    return page.id;
+  }
+
+  async updatePage(pageId: string, updates: { properties?: Record<string, unknown>; archived?: boolean }): Promise<void> {
+    // biome-ignore lint: Notion SDK types are overly strict for dynamic property construction
+    await this.client.pages.update({ page_id: pageId, ...updates } as any);
+  }
+
+  async getPageMeta(pageId: string): Promise<{ lastEditedTime: string | null }> {
+    const page = await this.client.pages.retrieve({ page_id: pageId });
+    const time = "last_edited_time" in page ? (page.last_edited_time as string) : null;
+    return { lastEditedTime: time };
+  }
+
+  getPageContents(pageId: string): Promise<string> {
+    return this.fetchContents(pageId);
+  }
+
+  async replacePageContents(pageId: string, blocks: BlockObjectRequest[]): Promise<void> {
+    const existing = await this.client.blocks.children.list({ block_id: pageId, page_size: 100 });
+    for (const block of existing.results) await this.client.blocks.delete({ block_id: block.id });
+    if (blocks.length) await this.client.blocks.children.append({ block_id: pageId, children: blocks });
   }
 
   async getPage(pageId: string): Promise<NotionPage> {

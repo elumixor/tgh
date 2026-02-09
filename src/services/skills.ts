@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { BlockObjectRequest } from "@notionhq/client/build/src/api-endpoints";
 import { env } from "env";
-import { notionClient } from "services/notion";
+import { notion } from "services/notion";
 
 const SKILLS_FILE = "./cache/skills.json";
 const DB_ID = env.NOTION_SKILLS_DB_ID;
@@ -12,15 +12,10 @@ interface SkillMeta {
   description: string;
 }
 
-function toCamelCase(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join("");
-}
-
 class Skills {
   private cache: SkillMeta[] | null = null;
+  private initPromise: { promise: Promise<void>; resolve: () => void; reject: (reason?: unknown) => void } | null =
+    null;
 
   getAll(): SkillMeta[] {
     if (this.cache !== null) return this.cache;
@@ -36,89 +31,63 @@ class Skills {
     return this.cache;
   }
 
-  getByName(name: string): SkillMeta | undefined {
+  async getByName(name: string): Promise<SkillMeta | undefined> {
+    if (!this.initPromise) throw new Error("Skills not initialized. Call sync() first.");
+    await this.initPromise.promise;
     return this.getAll().find((s) => s.name === name);
   }
 
-  async readContent(pageId: string): Promise<string> {
-    const blocks = await notionClient.blocks.children.list({ block_id: pageId, page_size: 100 });
-    const lines: string[] = [];
-
-    for (const block of blocks.results) {
-      if (!("type" in block)) continue;
-      const blockType = block.type;
-      const blockData = block as Record<string, unknown>;
-      const typedBlock = blockData[blockType] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
-      const text = typedBlock?.rich_text?.map((t) => t.plain_text ?? "").join("") ?? "";
-
-      switch (blockType) {
-        case "heading_1":
-          lines.push(`# ${text}`);
-          break;
-        case "heading_2":
-          lines.push(`## ${text}`);
-          break;
-        case "heading_3":
-          lines.push(`### ${text}`);
-          break;
-        case "bulleted_list_item":
-          lines.push(`- ${text}`);
-          break;
-        case "paragraph":
-          lines.push(text);
-          break;
-      }
-    }
-
-    return lines.join("\n");
+  readContent(pageId: string): Promise<string> {
+    return notion.getPageContents(pageId);
   }
 
   async add(name: string, description: string, content: string): Promise<SkillMeta> {
-    const page = await notionClient.pages.create({
-      parent: { database_id: DB_ID },
-      properties: {
+    const blocks = this.markdownToNotionBlocks(content);
+    const id = await notion.createPage(
+      DB_ID,
+      {
         Name: { title: [{ text: { content: name } }] },
         Description: { rich_text: [{ text: { content: description } }] },
       },
-    });
-
-    const blocks = this.markdownToNotionBlocks(content);
-    if (blocks.length > 0) await notionClient.blocks.children.append({ block_id: page.id, children: blocks });
+      blocks.nonEmpty ? blocks : undefined,
+    );
 
     await this.refreshCache();
-    return { id: page.id, name: toCamelCase(name), description };
+    return { id, name, description };
   }
 
   async remove(pageId: string): Promise<void> {
-    await notionClient.pages.update({ page_id: pageId, archived: true });
+    await notion.updatePage(pageId, { archived: true });
     await this.refreshCache();
   }
 
   async update(pageId: string, updates: { name?: string; description?: string; content?: string }): Promise<void> {
-    const properties: Record<
-      string,
-      { title: Array<{ text: { content: string } }> } | { rich_text: Array<{ text: { content: string } }> }
-    > = {};
+    const properties: Record<string, unknown> = {};
     if (updates.name) properties.Name = { title: [{ text: { content: updates.name } }] };
     if (updates.description) properties.Description = { rich_text: [{ text: { content: updates.description } }] };
 
-    if (Object.keys(properties).length > 0) await notionClient.pages.update({ page_id: pageId, properties });
+    if (Object.keys(properties).length > 0) await notion.updatePage(pageId, { properties });
 
     if (updates.content) {
-      const existing = await notionClient.blocks.children.list({ block_id: pageId, page_size: 100 });
-      for (const block of existing.results) await notionClient.blocks.delete({ block_id: block.id });
-
       const blocks = this.markdownToNotionBlocks(updates.content);
-      if (blocks.length > 0) await notionClient.blocks.children.append({ block_id: pageId, children: blocks });
+      await notion.replacePageContents(pageId, blocks);
     }
 
     await this.refreshCache();
   }
 
   async sync(): Promise<string> {
-    const skills = await this.queryDatabase();
-    this.saveCache(skills);
-    return `Skills synced: ${skills.length} skill(s) loaded`;
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    this.initPromise = { promise, resolve, reject };
+    try {
+      const skills = await this.queryDatabase();
+      this.saveCache(skills);
+      resolve();
+      return `Skills synced: ${skills.length} skill(s) loaded`;
+    } catch (e) {
+      reject(e);
+      throw e;
+    }
   }
 
   getPromptSection(): string {
@@ -126,7 +95,7 @@ class Skills {
     if (all.length === 0) return "";
 
     const list = all.map((s) => `- **${s.name}**: ${s.description}`).join("\n");
-    return `\n## Skills\n\nYou have the following skills available. Use ReadSkill to read the full content of a skill when needed.\n\n${list}\n\nUse AddSkill, RemoveSkill, UpdateSkill to manage skills.`;
+    return `\n## Skills\n\nYou have the following skills available. Use ReadSkill to read the full content of a skill when needed.\n\n${list}\n\n.`;
   }
 
   private async refreshCache(): Promise<void> {
@@ -158,7 +127,7 @@ class Skills {
       const descProperty = props.Description as { rich_text?: Array<{ plain_text?: string }> } | undefined;
       const description = descProperty?.rich_text?.map((t) => t.plain_text ?? "").join("") ?? "";
 
-      skills.push({ id: page.id, name: toCamelCase(rawName), description });
+      skills.push({ id: page.id, name: rawName, description });
     }
 
     return skills;
