@@ -8,6 +8,7 @@ import { Job, JobQueue } from "jobs";
 import { Listr } from "listr2";
 import { logger } from "logger";
 import { memories } from "services/memories";
+import { skills } from "services/skills";
 import { gramjsClient } from "services/telegram";
 import { notionMcpServer } from "tools/notion";
 import { isBotMentioned } from "utils";
@@ -43,6 +44,12 @@ await new Listr(
       title: "Sync memories",
       task: async (_, task) => {
         task.title = await memories.sync();
+      },
+    },
+    {
+      title: "Sync skills",
+      task: async (_, task) => {
+        task.title = await skills.sync();
       },
     },
     {

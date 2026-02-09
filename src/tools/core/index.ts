@@ -4,10 +4,6 @@ import { sendFileTool } from "./send-file";
 import { updateMemoriesTool } from "./update-memories";
 import { waitTool } from "./wait";
 
-export * from "./get-group-chat-info";
-export * from "./get-messages";
-export * from "./send-file";
-export * from "./update-memories";
-export * from "./wait";
+export { getChatInfoTool, getMessagesTool, sendFileTool, updateMemoriesTool, waitTool };
 
 export const coreTools = [getChatInfoTool, getMessagesTool, sendFileTool, updateMemoriesTool, waitTool];

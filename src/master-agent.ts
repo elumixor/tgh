@@ -1,7 +1,9 @@
 import { coreTools } from "@tools/core";
 import { cancelSignTool, sendForSignTool } from "@tools/signing";
+import { skillTools } from "@tools/skills";
 import { models } from "models";
 import { memories } from "services/memories";
+import { skills } from "services/skills";
 import { StreamingAgent } from "streaming-agent";
 import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
@@ -35,7 +37,7 @@ Use ${updateMemoriesTool.name} tool when:
 - Important context should be persisted
 
 The tool accepts an instruction in natural language (e.g., "add preference for concise responses", "remove the item about X").
-
+${skills.getPromptSection()}
 ## Output Format
 
 - Be concise and direct in responses
@@ -62,6 +64,7 @@ You need not rely on old messages to provide constant results. The system might 
     },
     sendForSignTool,
     cancelSignTool,
+    ...skillTools,
     // {
     //   agent: onboardingAgent,
     //   description:

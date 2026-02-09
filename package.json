@@ -4,13 +4,12 @@
   "type": "module",
   "private": true,
   "config": {
-    "version": "0.1.58"
+    "version": "0.1.59"
   },
   "packageManager": "bun@1.3.5",
   "scripts": {
     "start": "bun run src/index.tsx",
     "dev": "bun run --watch src/index.tsx",
-    "cli": "bun run src/cli.ts",
     "format": "biome format --write .",
     "test": "bun test",
     "test:manual": "RUN_MANUAL_TESTS=1 bun test",
