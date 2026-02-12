@@ -10,7 +10,7 @@ export class GeminiClient {
   private readonly model = "gemini-2.5-flash-image";
 
   async generateImage(prompt: string, references: string[] = []) {
-    const refParts = await Promise.all(references.map((url) => this.urlToImagePart(url)));
+    const refParts = await Promise.all(references.map((url) => this.toInlinePart(url)));
 
     const response = await this.client.models.generateContent({
       model: this.model,
@@ -27,7 +27,7 @@ export class GeminiClient {
   }
 
   async analyzeImage(task: string, images: string[]) {
-    const refParts = await Promise.all(images.map((url) => this.urlToImagePart(url)));
+    const refParts = await Promise.all(images.map((url) => this.toInlinePart(url)));
 
     const response = await this.client.models.generateContent({
       model: this.model,
@@ -40,7 +40,7 @@ export class GeminiClient {
     return { texts };
   }
 
-  private async urlToImagePart(url: string): Promise<{ inlineData: { mimeType: string; data: string } }> {
+  private async toInlinePart(url: string): Promise<{ inlineData: { mimeType: string; data: string } }> {
     const { buffer, mimeType } = await readFile(url);
     return { inlineData: { mimeType, data: buffer.toString("base64") } };
   }

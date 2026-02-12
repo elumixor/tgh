@@ -108,8 +108,7 @@ export class GramJSClient {
         const { voice } = apiMsg;
         if (!voice) return;
         const buffer = await this.client.downloadMedia(apiMsg, {});
-        if (buffer instanceof Buffer)
-          transcriptions.set(apiMsg.id, await transcribeAudio(buffer, String(voice.id)));
+        if (buffer instanceof Buffer) transcriptions.set(apiMsg.id, await transcribeAudio(buffer, String(voice.id)));
       }),
     );
 
@@ -229,6 +228,38 @@ export class GramJSClient {
       logger.warn({ username, chatId, error: errorMessage }, "Failed to add user to group");
       return { success: false, error: errorMessage };
     }
+  }
+
+  async downloadMedia(
+    chatId: number,
+    messageId: number,
+  ): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
+    if (!this.initialized) throw new Error("GramJS client not initialized");
+
+    const messages = await this.client.getMessages(chatId, { ids: [messageId] });
+    const msg = messages[0];
+    if (!msg) throw new Error(`Message ${messageId} not found in chat ${chatId}`);
+    if (!msg.media) throw new Error(`Message ${messageId} has no media`);
+
+    const downloaded = await this.client.downloadMedia(msg, {});
+    if (!(downloaded instanceof Buffer)) throw new Error(`Failed to download media from message ${messageId}`);
+
+    let fileName = "attachment";
+    let mimeType = "application/octet-stream";
+
+    if (msg.photo) {
+      fileName = `photo-${msg.id}.jpg`;
+      mimeType = "image/jpeg";
+    } else if (msg.document) {
+      const doc = msg.document as Api.Document;
+      mimeType = doc.mimeType ?? "application/octet-stream";
+      const fileNameAttr = doc.attributes?.find(
+        (a): a is Api.DocumentAttributeFilename => a instanceof Api.DocumentAttributeFilename,
+      );
+      fileName = fileNameAttr?.fileName ?? `file-${msg.id}`;
+    }
+
+    return { buffer: downloaded, fileName, mimeType };
   }
 
   async disconnect(): Promise<void> {
