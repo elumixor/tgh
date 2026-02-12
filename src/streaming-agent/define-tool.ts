@@ -11,6 +11,7 @@ export function defineTool<TShape extends z.ZodRawShape, TReturn = unknown>(
   description: string,
   parameters: z.ZodObject<TShape & ValidToolShape<TShape>>,
   execute: (params: z.infer<z.ZodObject<TShape>>, context: Job) => TReturn | Promise<TReturn>,
+  { isSensitive }: { isSensitive?: boolean } = {},
 ): ToolDefinition<z.ZodObject<TShape>, TReturn> {
-  return { name, description, parameters, execute };
+  return { name, description, parameters, execute, isSensitive };
 }

@@ -20,6 +20,9 @@ export function JobProvider({ job, children }: { job: Job; children: ReactNode }
     get currentChatId() {
       return job.currentChatId;
     },
+    get userId() {
+      return job.userId;
+    },
     get state() {
       return state;
     },

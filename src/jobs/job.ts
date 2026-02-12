@@ -27,6 +27,10 @@ export class Job {
     readonly botName: string,
   ) {}
 
+  get userId() {
+    return this.telegramContext.from?.id;
+  }
+
   addFile(buffer: Buffer, filename: string, type: "file" | "preview") {
     this.fileAdded.emit({ buffer, filename, type });
   }

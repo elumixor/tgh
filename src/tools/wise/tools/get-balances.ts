@@ -16,4 +16,5 @@ export const getBalancesTool = defineTool(
       .map((b) => `${b.currency}: ${b.amount.value.toFixed(2)} (reserved: ${b.reservedAmount.value.toFixed(2)})`)
       .join("\n");
   },
+  { isSensitive: true },
 );

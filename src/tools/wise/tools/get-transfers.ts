@@ -28,4 +28,5 @@ export const getTransfersTool = defineTool(
       )
       .join("\n");
   },
+  { isSensitive: true },
 );
