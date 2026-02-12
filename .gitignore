@@ -38,5 +38,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 test-output/
 cache/
 
+# SQLite
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
 # CLI history
 .cli_history

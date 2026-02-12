@@ -34,4 +34,10 @@ services:
         sync: false
       - key: ALLOWED_CHAT_ID
         sync: false
+      - key: DB_PATH
+        value: /var/data/db.sqlite
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
     plan: free

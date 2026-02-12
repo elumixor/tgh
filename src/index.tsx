@@ -1,6 +1,7 @@
 import "@elumixor/extensions";
 
 import { JobProvider, Main } from "app-view";
+import { db } from "db";
 import { env } from "env";
 import { Bot, webhookCallback } from "grammy";
 import { TelegramRenderer } from "io/output";
@@ -19,6 +20,14 @@ const { id: botChatId, username: botUsername = "", first_name: botName } = await
 
 await new Listr(
   [
+    {
+      title: "Initialize database",
+      task: async (_, task) => {
+        const { migrate } = await import("drizzle-orm/bun-sqlite/migrator");
+        migrate(db, { migrationsFolder: "./drizzle" });
+        task.title = "Database initialized";
+      },
+    },
     { title: "Initialize Google APIs", task: () => import("services/google-api") },
     {
       title: "Connect to Telegram",

@@ -49,6 +49,9 @@ const envSchema = z
     // Wise
     WISE_API_TOKEN: z.string().min(1, "WISE_API_TOKEN is required"),
 
+    // Database
+    DB_PATH: z.string().optional(),
+
     VERBOSE: z.number().default(0),
   })
   .refine((data) => data.BOT_MODE !== "webhook" || data.BASE_URL, {
