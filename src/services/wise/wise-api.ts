@@ -5,7 +5,7 @@ const BASE_URL = "https://api.wise.com";
 export class WiseApi {
   constructor(
     private readonly token: string,
-    private readonly privateKeyPath: string,
+    private readonly privateKey: string,
   ) {}
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -23,7 +23,7 @@ export class WiseApi {
     if (response.status === 403) {
       const oneTimeToken = response.headers.get("x-2fa-approval");
       if (oneTimeToken) {
-        const signature = signScaChallenge(oneTimeToken, this.privateKeyPath);
+        const signature = signScaChallenge(oneTimeToken, this.privateKey);
         const scaResponse = await fetch(`${BASE_URL}${path}`, {
           method,
           headers: {
@@ -52,7 +52,7 @@ export class WiseApi {
     if (response.status === 403) {
       const oneTimeToken = response.headers.get("x-2fa-approval");
       if (oneTimeToken) {
-        const signature = signScaChallenge(oneTimeToken, this.privateKeyPath);
+        const signature = signScaChallenge(oneTimeToken, this.privateKey);
         const scaResponse = await fetch(`${BASE_URL}${path}`, {
           method,
           headers: {
