@@ -7,10 +7,12 @@ import { memories } from "services/memories";
 import { skills } from "services/skills";
 import { systemPrompt } from "services/system-prompt";
 import { StreamingAgent } from "streaming-agent";
-import { updateMemoriesTool } from "tools/core/update-memories";
 import { calendarAgent } from "tools/calendar";
+import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
 import { emailAgent } from "tools/email";
+import { imageAgent } from "tools/image/image-agent";
+import { explainTool } from "tools/image/tools/explain";
 import { notionAgent } from "tools/notion";
 import { wiseAgent } from "tools/wise";
 
@@ -68,6 +70,7 @@ export const masterAgent = new StreamingAgent({
     // },
     webSearchTool,
     // getAPIBalancesTool,
-    // { agent: imageAgent, description: "Generate, analyze images, or create 3D models from images" },
+    explainTool,
+    { agent: imageAgent, description: "Generate, edit, analyze images, or create 3D models from images" },
   ],
 });

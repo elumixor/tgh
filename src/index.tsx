@@ -119,6 +119,8 @@ bot.on("message", async (ctx) => {
     userMessage = await transcribeAudio(buffer, ctx.message.voice.file_unique_id);
   }
 
+  if (!userMessage && (ctx.message.photo || ctx.message.document)) userMessage = "(attachment)";
+
   logger.info({ userMessage }, "Received message");
 
   if (!userMessage) return;
