@@ -1,10 +1,19 @@
 import { EventEmitter } from "@elumixor/event-emitter";
 import { random } from "@elumixor/frontils";
 import { Agent, type RunStreamEvent, run, type Tool, tool, withTrace } from "@openai/agents";
+import { env } from "env";
 import type { Job } from "jobs/job";
 import { z } from "zod";
 import { DeltaStream } from "./delta-stream";
-import type { AgentCallData, CallData, StreamingAgentOptions, ToolCallData, ToolDefinition, ToolInput } from "./types";
+import type {
+  AgentCallData,
+  CallData,
+  NestedAgent,
+  StreamingAgentOptions,
+  ToolCallData,
+  ToolDefinition,
+  ToolInput,
+} from "./types";
 
 export class StreamingAgent {
   readonly reasoning = new DeltaStream();
@@ -34,9 +43,16 @@ export class StreamingAgent {
 
   private wrapTool(t: ToolInput): Tool {
     if (t instanceof StreamingAgent) return this.wrapNestedAgent(t);
-    if ("agent" in t && t.agent instanceof StreamingAgent) return this.wrapNestedAgent(t.agent, t.description);
+    if ("agent" in t && t.agent instanceof StreamingAgent)
+      return this.wrapNestedAgent(t.agent, (t as NestedAgent).description, (t as NestedAgent).isSensitive);
     if ("execute" in t) return this.wrapToolDefinition(t as ToolDefinition);
     return t as Tool;
+  }
+
+  private assertNotSensitive(name: string) {
+    if (!this._context) throw new Error("No context available");
+    if (this._context.userId !== env.ALLOWED_USER_ID)
+      throw new Error(`Access denied: "${name}" is restricted to the authorized user only.`);
   }
 
   get name() {
@@ -118,7 +134,7 @@ export class StreamingAgent {
     }
   }
 
-  private wrapNestedAgent(nestedAgent: StreamingAgent, description?: string): Tool {
+  private wrapNestedAgent(nestedAgent: StreamingAgent, description?: string, isSensitive?: boolean): Tool {
     return tool({
       name: nestedAgent.name,
       description: description ?? `Nested agent: ${nestedAgent.name}`,
@@ -126,6 +142,7 @@ export class StreamingAgent {
         input: z.string().describe("Input for the nested agent"),
       }),
       execute: async ({ input }) => {
+        if (isSensitive) this.assertNotSensitive(nestedAgent.name);
         const callData: AgentCallData = {
           type: "agent",
           id: random.string(8),
@@ -173,6 +190,8 @@ export class StreamingAgent {
       description: def.description,
       parameters: def.parameters,
       execute: async (args) => {
+        if (def.isSensitive) this.assertNotSensitive(def.name);
+
         const callData: ToolCallData = {
           type: "tool",
           id: random.string(8),

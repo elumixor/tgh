@@ -35,11 +35,13 @@ export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TReturn =
   description: string;
   parameters: TParams;
   execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>;
+  isSensitive?: boolean;
 }
 
 export interface NestedAgent {
   agent: StreamingAgent;
   description: string;
+  isSensitive?: boolean;
 }
 
 export type ToolInput = ToolDefinition | StreamingAgent | NestedAgent | Tool;

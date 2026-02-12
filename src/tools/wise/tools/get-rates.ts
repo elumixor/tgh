@@ -13,4 +13,5 @@ export const getRatesTool = defineTool(
     const rates = await wise.getRates(source ?? undefined, target ?? undefined);
     return rates.map((r) => `${r.source} → ${r.target}: ${r.rate}`).join("\n");
   },
+  { isSensitive: true },
 );

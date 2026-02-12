@@ -67,6 +67,7 @@ You need not rely on old messages to provide constant results. The system might 
       agent: wiseAgent,
       description:
         "Manage Wise account: check balances, view transfers, get exchange rates, download statements.",
+      isSensitive: true,
     },
     sendForSignTool,
     cancelSignTool,
