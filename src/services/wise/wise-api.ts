@@ -1,73 +1,19 @@
-import { signScaChallenge } from "./sca";
-
 const BASE_URL = "https://api.wise.com";
 
 export class WiseApi {
-  constructor(
-    private readonly token: string,
-    private readonly privateKey: string,
-  ) {}
+  constructor(private readonly token: string) {}
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token}`,
-      "Content-Type": "application/json",
-    };
-
+  private async request<T>(method: string, path: string): Promise<T> {
     const response = await fetch(`${BASE_URL}${path}`, {
       method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
     });
-
-    if (response.status === 403) {
-      const oneTimeToken = response.headers.get("x-2fa-approval");
-      if (oneTimeToken) {
-        const signature = signScaChallenge(oneTimeToken, this.privateKey);
-        const scaResponse = await fetch(`${BASE_URL}${path}`, {
-          method,
-          headers: {
-            ...headers,
-            "x-2fa-approval": oneTimeToken,
-            "X-Signature": signature,
-          },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-        if (!scaResponse.ok) throw new Error(`Wise API error ${scaResponse.status}: ${await scaResponse.text()}`);
-        return scaResponse.json() as Promise<T>;
-      }
-    }
 
     if (!response.ok) throw new Error(`Wise API error ${response.status}: ${await response.text()}`);
     return response.json() as Promise<T>;
-  }
-
-  private async requestBuffer(method: string, path: string): Promise<Buffer> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token}`,
-    };
-
-    const response = await fetch(`${BASE_URL}${path}`, { method, headers });
-
-    if (response.status === 403) {
-      const oneTimeToken = response.headers.get("x-2fa-approval");
-      if (oneTimeToken) {
-        const signature = signScaChallenge(oneTimeToken, this.privateKey);
-        const scaResponse = await fetch(`${BASE_URL}${path}`, {
-          method,
-          headers: {
-            ...headers,
-            "x-2fa-approval": oneTimeToken,
-            "X-Signature": signature,
-          },
-        });
-        if (!scaResponse.ok) throw new Error(`Wise API error ${scaResponse.status}: ${await scaResponse.text()}`);
-        return Buffer.from(await scaResponse.arrayBuffer());
-      }
-    }
-
-    if (!response.ok) throw new Error(`Wise API error ${response.status}: ${await response.text()}`);
-    return Buffer.from(await response.arrayBuffer());
   }
 
   getProfiles(): Promise<WiseProfile[]> {
@@ -95,24 +41,6 @@ export class WiseApi {
 
   getTransfer(transferId: number): Promise<WiseTransfer> {
     return this.request("GET", `/v1/transfers/${transferId}`);
-  }
-
-  getStatement(profileId: number, balanceId: number, params: StatementParams): Promise<WiseStatement> {
-    const qs = new URLSearchParams({
-      intervalStart: params.startDate,
-      intervalEnd: params.endDate,
-      type: "COMPACT",
-    });
-    return this.request("GET", `/v1/profiles/${profileId}/balance-statements/${balanceId}/statement.json?${qs}`);
-  }
-
-  getStatementPdf(profileId: number, balanceId: number, params: StatementParams): Promise<Buffer> {
-    const qs = new URLSearchParams({
-      intervalStart: params.startDate,
-      intervalEnd: params.endDate,
-      type: "COMPACT",
-    });
-    return this.requestBuffer("GET", `/v1/profiles/${profileId}/balance-statements/${balanceId}/statement.pdf?${qs}`);
   }
 }
 
@@ -150,22 +78,4 @@ export interface WiseTransfer {
   targetCurrency: string;
   targetValue: number;
   customerTransactionId: string;
-}
-
-export interface WiseStatement {
-  transactions: WiseTransaction[];
-}
-
-export interface WiseTransaction {
-  type: string;
-  date: string;
-  amount: { value: number; currency: string };
-  totalFees: { value: number; currency: string };
-  details: { type: string; description: string };
-  runningBalance: { value: number; currency: string };
-}
-
-export interface StatementParams {
-  startDate: string;
-  endDate: string;
 }

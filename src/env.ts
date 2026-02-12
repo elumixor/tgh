@@ -47,7 +47,6 @@ const envSchema = z
 
     // Wise
     WISE_API_TOKEN: z.string().min(1, "WISE_API_TOKEN is required"),
-    WISE_PRIVATE_KEY: z.string().min(1, "WISE_PRIVATE_KEY is required"),
 
     VERBOSE: z.number().default(0),
   })
