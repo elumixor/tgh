@@ -17,7 +17,11 @@ if (!clientId || !clientSecret) {
   process.exit(1);
 }
 
-const SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents"];
+const SCOPES = [
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/documents",
+  "https://www.googleapis.com/auth/calendar",
+];
 const REDIRECT_URI = "http://localhost:3333";
 
 const oauth2 = new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);

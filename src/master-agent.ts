@@ -7,6 +7,7 @@ import { memories } from "services/memories";
 import { skills } from "services/skills";
 import { StreamingAgent } from "streaming-agent";
 import { updateMemoriesTool } from "tools/core/update-memories";
+import { calendarAgent } from "tools/calendar";
 import { driveAgent } from "tools/drive";
 import { notionAgent } from "tools/notion";
 import { wiseAgent } from "tools/wise";
@@ -63,6 +64,11 @@ You need not rely on old messages to provide constant results. The system might 
       agent: driveAgent,
       description:
         "Manage Google Drive and Google Docs. Accepts a general instruction in a natural language with required ids/links/names.",
+    },
+    {
+      agent: calendarAgent,
+      description: "Manage Google Calendar: list events, create/update/delete events, check availability.",
+      isSensitive: true,
     },
     {
       agent: wiseAgent,
