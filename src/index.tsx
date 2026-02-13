@@ -109,6 +109,11 @@ bot.on("message", async (ctx) => {
     if (!isBotMentioned(ctx.message, botUsername)) return;
   } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
 
+  // Immediately react with 👀 to acknowledge the message
+  await ctx.react("👀").catch((error) => {
+    logger.warn({ error: error instanceof Error ? error.message : String(error) }, "Failed to set initial reaction");
+  });
+
   let userMessage = ctx.message.text ?? ctx.message.caption;
 
   if (!userMessage && ctx.message.voice) {
